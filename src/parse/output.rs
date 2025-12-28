@@ -1,5 +1,6 @@
 use crate::output::Output;
 use crate::parse::arg;
+use crate::parse::ParserError;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::space1;
@@ -8,16 +9,18 @@ use nom::error::context;
 use nom::sequence::{preceded, terminated};
 use nom::IResult;
 use nom::Parser;
-use crate::parse::ParserError;
 
 pub(super) type OutputResult<'a> = IResult<&'a str, Output, ParserError<'a>>;
 
 pub(super) fn parse_out(input: &str) -> OutputResult<'_> {
-    alt((
-        parse_to_file,
-        parse_to_clip,
-        context("Output::Out", map(success(()), |_| Output::Out)), // 最后默认使用`Output::Out`
-    ))
+    context(
+        "Output",
+        alt((
+            parse_to_file,
+            parse_to_clip,
+            context("Output::Out", map(success(()), |_| Output::Out)), // 最后默认使用`Output::Out`
+        )),
+    )
     .parse(input)
 }
 

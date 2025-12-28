@@ -15,7 +15,7 @@ pub(crate) type Integer = i64;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use nom::Parser;
-    let input = "of [ abc def ghi 123 ] upper ";
+    let input = r#"in replace '' _ nocase lower "#;
 
     let (remaining, (input, ops, output)) = parse::parse(input)?;
     println!("remaining: {:?}", remaining);

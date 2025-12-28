@@ -19,10 +19,11 @@ mod output;
 /// 解析错误的类型
 pub(crate) type ParserError<'a> = VerboseError<&'a str>;
 
-/// 重新导出解析整数的函数
-pub(crate) use nom::character::complete::i64 as parse_integer;
 use crate::op::Op;
 use crate::parse::op::parse_ops;
+/// 重新导出解析整数的函数
+pub(crate) use nom::character::complete::i64 as parse_integer;
+use nom::error::context;
 
 pub(crate) fn parse(input: &str) -> IResult<&str, (Input, Vec<Op>, Output), VerboseError<&str>> {
     (parse_input, parse_ops, parse_out).parse(input)
@@ -44,12 +45,15 @@ pub(super) fn cmd_arg_or_args1<'a>(
 /// 构造一个解析器，支持解析：
 ///  - `cmd arg `：命令+单个参数；
 pub(super) fn cmd_arg<'a>(cmd: &'static str) -> impl Parser<&'a str, Output = String, Error = ParserError<'a>> {
-    terminated(
-        preceded(
-            (tag_no_case(cmd), space1), // 丢弃：命令标记和空格
-            arg,                        // 参数
+    context(
+        "Cmd_Arg",
+        terminated(
+            preceded(
+                (tag_no_case(cmd), space1), // 丢弃：命令标记和空格
+                arg,                        // 参数
+            ),
+            space1, // 丢弃：结尾空格
         ),
-        space1, // 丢弃：结尾空格
     )
 }
 
@@ -57,38 +61,45 @@ pub(super) fn cmd_arg<'a>(cmd: &'static str) -> impl Parser<&'a str, Output = St
 ///  - `cmd [ arg ] `：命令+单个参数，中括号包围；
 ///  - `cmd [ arg0 arg1 ] `：命令+一个以上的参数，中括号包围；
 pub(super) fn cmd_args1<'a>(cmd: &'static str) -> impl Parser<&'a str, Output = Vec<String>, Error = ParserError<'a>> {
-    map(
-        terminated(
-            preceded(
-                // 丢弃： 命令标记、空格、左括号、空格
-                (tag_no_case(cmd), space1, char('['), space1),
-                verify(
-                    many_till(
-                        terminated(arg, space1), // 参数、空格（丢弃）
-                        char(']'),               // 忽略：右括号
+    context(
+        "Cmd_Args1",
+        map(
+            terminated(
+                preceded(
+                    // 丢弃： 命令标记、空格、左括号、空格
+                    (tag_no_case(cmd), space1, char('['), space1),
+                    verify(
+                        many_till(
+                            terminated(arg, space1), // 参数、空格（丢弃）
+                            char(']'),               // 忽略：右括号
+                        ),
+                        // OPT 2025-12-25 00:57 是否支持空的参数列表？
+                        |(args, _)| !args.is_empty(), // 验证：参数非空
                     ),
-                    // OPT 2025-12-25 00:57 是否支持空的参数列表？
-                    |(args, _)| !args.is_empty(), // 验证：参数非空
                 ),
+                space1, // 丢弃：结尾空格
             ),
-            space1, // 丢弃：结尾空格
+            |(args, _)| args,
         ),
-        |(args, _)| args,
     )
 }
 
 /// 解析器，支持解析单个参数。
 pub(super) fn arg(input: &str) -> IResult<&str, String, VerboseError<&str>> {
     // TODO 2025-12-24 23:29 实现完整的单个参数解析
-    map(
-        verify(
-            alt((
-                delimited(char('"'), take_until("\""), char('"')),     // 带引号的参数
-                take_while1(|c: char| !c.is_whitespace() && c != '"'), // 不带引号的文件名
-            )),
-            |arg: &str| arg != "[" && arg != "]", // 验证：不能是单个括号
+    context(
+        "Arg",
+        map(
+            verify(
+                alt((
+                    delimited(char('"'), take_until("\""), char('"')),     // 带双引号的参数
+                    delimited(char('\''), take_until("\'"), char('\'')),   // 带单引号的参数
+                    take_while1(|c: char| !c.is_whitespace() && c != '"'), // 不带引号的参数
+                )),
+                |arg: &str| arg != "[" && arg != "]", // 验证：不能是单个括号
+            ),
+            |arg: &str| arg.to_string(),
         ),
-        |arg: &str| arg.to_string(),
     )
     .parse(input)
 }
@@ -149,5 +160,7 @@ mod tests {
         assert!(arg(r#""hello "#).is_err());
         assert!(arg("[ ").is_err());
         assert!(arg("] ").is_err());
+        assert_eq!(arg(r#""""#), Ok(("", "".to_string())));
+        assert_eq!(arg(r#"''"#), Ok(("", "".to_string())));
     }
 }

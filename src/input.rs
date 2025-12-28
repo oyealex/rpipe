@@ -2,17 +2,19 @@ use crate::Integer;
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, BufReader};
+use std::iter::repeat;
 use std::ops::{Deref, DerefMut};
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub(crate) enum Item {
-    Integer(Integer),
     String(String),
+    Str(&'static str),
+    Integer(Integer),
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Input {
-    /// 标准输入
+    /// 标准输入：`rp in`
     StdIn,
     /// 外部文件
     File { files: Vec<String> },
@@ -22,6 +24,8 @@ pub(crate) enum Input {
     Of { values: Vec<String> },
     /// 整数生成器
     Gen { start: Integer, end: Integer, included: bool, step: Integer },
+    /// 重复
+    Repeat { value: &'static str, count: Option<usize> },
 }
 
 pub(crate) enum Pipe {
@@ -76,7 +80,15 @@ impl Input {
             }
             Input::Of { values } => Pipe::Bounded(Box::new(values.into_iter().map(Item::String))),
             Input::Gen { start, end, included, step } => {
+                // TODO 2025-12-28 21:59 如果
                 Pipe::Bounded(Box::new(range_to_iter(start, end, included, step).map(|x| Item::Integer(x))))
+            }
+            Input::Repeat { value, count } => {
+                if count.is_none() {
+                    Pipe::Unbounded(Box::new(repeat(Item::Str(value))))
+                } else {
+                    Pipe::Bounded(Box::new(repeat(Item::Str(value)).take(count.unwrap())))
+                }
             }
         }
     }
@@ -85,7 +97,7 @@ impl Input {
 fn range_to_iter(
     start: Integer, end: Integer, included: bool, step: Integer,
 ) -> Box<dyn DoubleEndedIterator<Item = Integer>> {
-    let iter = IntegerIter {
+    let iter = RangeIter {
         start,
         end,
         included,
@@ -97,7 +109,7 @@ fn range_to_iter(
 }
 
 #[derive(Debug, Eq, PartialEq)]
-struct IntegerIter {
+struct RangeIter {
     start: Integer,
     end: Integer,
     included: bool,
@@ -106,7 +118,7 @@ struct IntegerIter {
     next_back: Integer,
 }
 
-impl Iterator for IntegerIter {
+impl Iterator for RangeIter {
     type Item = Integer;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -123,7 +135,7 @@ impl Iterator for IntegerIter {
     }
 }
 
-impl DoubleEndedIterator for IntegerIter {
+impl DoubleEndedIterator for RangeIter {
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.next_back >= self.start
             && (self.included && self.next_back <= self.end || !self.included && self.next_back < self.end)
@@ -176,8 +188,6 @@ mod iter_tests {
 
     #[test]
     fn test_zero_step() {
-        let option = range_to_iter(0, 10, false, 2).last();
-        println!("{option:?}");
         assert_eq!(range_to_iter(0, 0, false, 0).next().is_none(), true);
         assert_eq!(range_to_iter(0, 1, false, 0).take(10).collect::<Vec<_>>(), vec![0; 10]);
         assert_eq!(range_to_iter(0, 1, false, 0).take(100).collect::<Vec<_>>(), vec![0; 100]);

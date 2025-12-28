@@ -13,8 +13,9 @@ impl Output {
             Output::Out => {
                 for item in pipe {
                     match item {
-                        Item::Integer(integer) => println!("{}", integer),
                         Item::String(string) => println!("{}", string),
+                        Item::Str(string) => println!("{}", string),
+                        Item::Integer(integer) => println!("{}", integer),
                     }
                 }
             }

@@ -1,12 +1,12 @@
 use crate::input::Input;
-use crate::parse::cmd_arg_or_args1;
+use crate::parse::{arg, cmd_arg_or_args1};
 use crate::parse::{parse_integer, ParserError};
 use crate::Integer;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
-use nom::character::complete::char;
 use nom::character::complete::space1;
-use nom::combinator::{map, success, verify};
+use nom::character::complete::{char, usize};
+use nom::combinator::{map, opt, success, verify};
 use nom::error::context;
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser};
@@ -14,7 +14,7 @@ use nom::{IResult, Parser};
 pub(super) type InputResult<'a> = IResult<&'a str, Input, ParserError<'a>>;
 
 pub(super) fn parse_input(input: &str) -> InputResult<'_> {
-    alt((parse_std_in, parse_file, parse_clip, parse_of, parse_gen)).parse(input)
+    context("Input", alt((parse_std_in, parse_file, parse_clip, parse_of, parse_gen, parse_repeat))).parse(input)
 }
 
 fn parse_std_in(input: &str) -> InputResult<'_> {
@@ -36,29 +36,50 @@ fn parse_of(input: &str) -> InputResult<'_> {
 fn parse_gen(input: &str) -> InputResult<'_> {
     preceded(
         (tag_no_case("gen"), space1), // 丢弃：命令+空格
-        terminated(parse_range_in_gen, space1),
+        terminated(_parse_range_in_gen, space1),
     )
     .parse(input)
 }
 
-fn parse_range_in_gen(input: &str) -> InputResult<'_> {
-    map(
-        alt((
-            (parse_integer, char(','), char('='), parse_integer, char(','), verify(parse_integer, |s| *s != 0)), // 0,=10,2
-            (parse_integer, char(','), success(' '), parse_integer, char(','), verify(parse_integer, |s| *s != 0)), // 0,10,2
-            (parse_integer, char(','), char('='), parse_integer, success(','), success(1)), // 0,=10
-            (parse_integer, char(','), success(' '), parse_integer, success(','), success(1)), // 0,10
-            (
-                parse_integer,
-                char(','),
-                success(' '),
-                success(Integer::MAX),
-                char(','),
-                verify(parse_integer, |s| *s != 0),
-            ), // 0,,2
-            (parse_integer, success(','), success(' '), success(Integer::MAX), success(','), success(1)), // 0
-        )),
-        |(start, _, close, end, _, step)| Input::Gen { start, end, included: close == '=', step },
+fn _parse_range_in_gen(input: &str) -> InputResult<'_> {
+    context(
+        "Input::Gen",
+        map(
+            alt((
+                // OPT 2025-12-28 23:16 使用opt重构？
+                (parse_integer, char(','), char('='), parse_integer, char(','), verify(parse_integer, |s| *s != 0)), // 0,=10,2
+                (parse_integer, char(','), success(' '), parse_integer, char(','), verify(parse_integer, |s| *s != 0)), // 0,10,2
+                (parse_integer, char(','), char('='), parse_integer, success(','), success(1)), // 0,=10
+                (parse_integer, char(','), success(' '), parse_integer, success(','), success(1)), // 0,10
+                (
+                    parse_integer,
+                    char(','),
+                    success(' '),
+                    success(Integer::MAX),
+                    char(','),
+                    verify(parse_integer, |s| *s != 0),
+                ), // 0,,2
+                (parse_integer, success(','), success(' '), success(Integer::MAX), success(','), success(1)), // 0
+            )),
+            |(start, _, close, end, _, step)| Input::Gen { start, end, included: close == '=', step },
+        ),
+    )
+    .parse(input)
+}
+
+fn parse_repeat(input: &str) -> InputResult<'_> {
+    context(
+        "Input::Repeat",
+        map(
+            terminated(
+                preceded(
+                    (tag_no_case("repeat"), space1),     // 丢弃：命令+空格
+                    (arg, opt(preceded(space1, usize))), // 保留：重复的值和可选的次数
+                ),
+                space1, // 丢弃：结尾空格
+            ),
+            |(value, count)| Input::Repeat { value: Box::leak(value.into_boxed_str()), count },
+        ),
     )
     .parse(input)
 }
@@ -66,6 +87,8 @@ fn parse_range_in_gen(input: &str) -> InputResult<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nom::bytes::tag;
+    use nom_language::error::VerboseError;
 
     #[test]
     fn test_parse_std_in() {
@@ -128,5 +151,15 @@ mod tests {
         assert_eq!(parse_gen("gen 0,,2 "), Ok(("", Input::Gen { start: 0, end: i64::MAX, included: false, step: 2 })));
         // 0
         assert_eq!(parse_gen("gen 0 "), Ok(("", Input::Gen { start: 0, end: i64::MAX, included: false, step: 1 })));
+    }
+
+    fn parse(input: &str) -> IResult<&str, (String, Option<usize>, &str), VerboseError<&str>> {
+        preceded((tag("repeat"), space1), (arg, opt(usize), space1)).parse(input)
+    }
+
+    #[test]
+    fn test_parse_repeat() {
+        assert_eq!(parse_repeat("repeat abc "), Ok(("", Input::Repeat { value: "abc", count: None })));
+        assert_eq!(parse_repeat("repeat abc 10 "), Ok(("", Input::Repeat { value: "abc", count: Some(10) })));
     }
 }
