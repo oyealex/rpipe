@@ -9,7 +9,7 @@ mod parse;
 pub(crate) type Integer = i64;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let input = r#"replace 123 "#;
+    let input = r#"repeat hello\ world 10 to file test.txt "#;
     let (remaining, (input, ops, output)) = parse::parse(input)?;
     println!("remaining: {:?}", remaining);
     println!("input: {:?}", input);

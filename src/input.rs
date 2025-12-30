@@ -10,6 +10,15 @@ pub(crate) enum Item {
     Integer(Integer),
 }
 
+impl From<Item> for String {
+    fn from(value: Item) -> Self {
+        match value {
+            Item::String(string) => string,
+            Item::Integer(integer) => integer.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Input {
     /// 标准输入：`rp in`
