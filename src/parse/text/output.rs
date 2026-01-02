@@ -1,6 +1,6 @@
 use crate::output::Output;
-use crate::parse::arg;
-use crate::parse::ParserError;
+use crate::parse::text::arg;
+use crate::parse::text::ParserError;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::space1;
@@ -10,15 +10,15 @@ use nom::sequence::{preceded, terminated};
 use nom::IResult;
 use nom::Parser;
 
-pub(super) type OutputResult<'a> = IResult<&'a str, Output, ParserError<'a>>;
+pub(in crate::parse) type OutputResult<'a> = IResult<&'a str, Output, ParserError<'a>>;
 
-pub(super) fn parse_out(input: &'static str) -> OutputResult<'static> {
+pub(in crate::parse) fn parse_out(input: &'static str) -> OutputResult<'static> {
     context(
         "Output",
         alt((
             parse_to_file,
             parse_to_clip,
-            context("Output::Out", map(success(()), |_| Output::Out)), // 最后默认使用`Output::Out`
+            context("Output::Out", map(success(()), |_| Output::new_std_out())), // 最后默认使用`Output::Out`
         )),
     )
     .parse(input)
@@ -48,22 +48,24 @@ fn parse_to_file(input: &'static str) -> OutputResult<'static> {
                 ),
                 space1, // 丢弃：结尾空格
             ),
-            |(file, append_opt, ending_opt): (String, Option<_>, Option<&str>)| Output::File {
-                file,
-                append: append_opt.is_some(),
-                crlf: ending_opt.map(|s| s.eq_ignore_ascii_case("crlf")),
+            |(file, append_opt, ending_opt): (String, Option<_>, Option<&str>)| {
+                Output::new_file(file, append_opt.is_some(), ending_opt.map(|s| s.eq_ignore_ascii_case("crlf")))
             },
         ),
     )
     .parse(input)
 }
 
+/// 解析：
+/// ```
+/// to clip
+/// ```
 fn parse_to_clip(input: &str) -> OutputResult<'_> {
     context(
         "Output::Clip",
         map(
             (tag_no_case("to"), space1, tag_no_case("clip"), space1), // 丢弃：`to clip `
-            |_| Output::Clip,
+            |_| Output::new_clip(),
         ),
     )
     .parse(input)
@@ -75,25 +77,22 @@ mod tests {
 
     #[test]
     fn test_parse_to_file() {
-        assert_eq!(
-            parse_to_file("to file out.txt "),
-            Ok(("", Output::File { file: "out.txt".to_string(), append: false, crlf: None }))
-        );
+        assert_eq!(parse_to_file("to file out.txt "), Ok(("", Output::new_file("out.txt".to_string(), false, None))));
         assert_eq!(
             parse_to_file("to file out.txt append "),
-            Ok(("", Output::File { file: "out.txt".to_string(), append: true, crlf: None }))
+            Ok(("", Output::new_file("out.txt".to_string(), true, None)))
         );
         assert_eq!(
             parse_to_file("to file out.txt append crlf "),
-            Ok(("", Output::File { file: "out.txt".to_string(), append: true, crlf: Some(true) }))
+            Ok(("", Output::new_file("out.txt".to_string(), true, Some(true))))
         );
         assert_eq!(
             parse_to_file("to file out.txt crlf "),
-            Ok(("", Output::File { file: "out.txt".to_string(), append: false, crlf: Some(true) }))
+            Ok(("", Output::new_file("out.txt".to_string(), false, Some(true))))
         );
         assert_eq!(
             parse_to_file(r#"to file "out .txt" "#),
-            Ok(("", Output::File { file: "out .txt".to_string(), append: false, crlf: None }))
+            Ok(("", Output::new_file("out .txt".to_string(), false, None)))
         );
         assert!(parse_to_file("to").is_err());
         assert!(parse_to_file("to file ").is_err());
@@ -102,8 +101,8 @@ mod tests {
 
     #[test]
     fn test_parse_to_clip() {
-        assert_eq!(parse_to_clip("to clip "), Ok(("", Output::Clip)));
-        assert_eq!(parse_to_clip("to  clip  "), Ok(("", Output::Clip)));
+        assert_eq!(parse_to_clip("to clip "), Ok(("", Output::new_clip())));
+        assert_eq!(parse_to_clip("to  clip  "), Ok(("", Output::new_clip())));
         assert!(parse_to_clip("to ").is_err());
     }
 }

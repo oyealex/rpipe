@@ -1,5 +1,5 @@
 use crate::op::Op;
-use crate::parse::{arg, ParserError};
+use crate::parse::text::{arg, ParserError};
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{space1, usize};
@@ -9,19 +9,19 @@ use nom::multi::many0;
 use nom::sequence::{delimited, preceded, terminated};
 use nom::{IResult, Parser};
 
-pub(super) type OpsResult<'a> = IResult<&'a str, Vec<Op>, ParserError<'a>>;
-pub(super) type OpResult<'a> = IResult<&'a str, Op, ParserError<'a>>;
+pub(in crate::parse) type OpsResult<'a> = IResult<&'a str, Vec<Op>, ParserError<'a>>;
+pub(in crate::parse) type OpResult<'a> = IResult<&'a str, Op, ParserError<'a>>;
 
-pub(super) fn parse_ops(input: &'static str) -> OpsResult<'static> {
+pub(in crate::parse) fn parse_ops(input: &'static str) -> OpsResult<'static> {
     context("Op", many0(alt((parse_upper, parse_lower, parse_replace, parse_uniq)))).parse(input)
 }
 
 fn parse_upper(input: &str) -> OpResult<'_> {
-    context("Op::Upper", map(terminated(tag_no_case("upper"), space1), |_| Op::Upper)).parse(input)
+    context("Op::Upper", map(terminated(tag_no_case("upper"), space1), |_| Op::new_upper())).parse(input)
 }
 
 fn parse_lower(input: &str) -> OpResult<'_> {
-    context("Op::Lower", map(terminated(tag_no_case("lower"), space1), |_| Op::Lower)).parse(input)
+    context("Op::Lower", map(terminated(tag_no_case("lower"), space1), |_| Op::new_lower())).parse(input)
 }
 
 fn parse_replace(input: &'static str) -> OpResult<'static> {
@@ -62,7 +62,7 @@ fn parse_replace(input: &'static str) -> OpResult<'static> {
                     count = count_opt;
                     nocase = nocase_opt.is_some();
                 }
-                Op::Replace { from, to, count, nocase }
+                Op::new_replace(from, to, count, nocase)
             },
         ),
     )
@@ -78,7 +78,7 @@ fn parse_uniq(input: &str) -> OpResult<'_> {
                 opt(preceded(space1, tag_no_case("nocase"))), // 可选：空格+nocase选项
                 space1,
             ), // 丢弃：结尾空格
-            |nocase_opt| Op::Uniq { nocase: nocase_opt.is_some() },
+            |nocase_opt| Op::new_uniq(nocase_opt.is_some()),
         ),
     )
     .parse(input)
@@ -90,59 +90,50 @@ mod tests {
 
     #[test]
     fn test_parse_upper() {
-        assert_eq!(parse_upper("upper "), Ok(("", Op::Upper)));
+        assert_eq!(parse_upper("upper "), Ok(("", Op::new_upper())));
     }
 
     #[test]
     fn test_parse_lower() {
-        assert_eq!(parse_lower("lower "), Ok(("", Op::Lower)));
+        assert_eq!(parse_lower("lower "), Ok(("", Op::new_lower())));
     }
 
     #[test]
     fn test_parse_replace() {
-        assert_eq!(
-            parse_replace("replace abc "),
-            Ok(("", Op::Replace { from: "abc".to_string(), to: None, count: None, nocase: false }))
-        );
+        assert_eq!(parse_replace("replace abc "), Ok(("", Op::new_replace("abc".to_string(), None, None, false))));
         assert_eq!(
             parse_replace("replace abc 123 "),
-            Ok(("", Op::Replace { from: "abc".to_string(), to: Some("123".to_string()), count: None, nocase: false }))
+            Ok(("", Op::new_replace("abc".to_string(), Some("123".to_string()), None, false)))
         );
         assert_eq!(
             parse_replace("replace abc 123 5 "),
-            Ok((
-                "",
-                Op::Replace { from: "abc".to_string(), to: Some("123".to_string()), count: Some(5), nocase: false }
-            ))
+            Ok(("", Op::new_replace("abc".to_string(), Some("123".to_string()), Some(5), false)))
         );
         assert_eq!(
             parse_replace("replace abc 123 5 nocase "),
-            Ok((
-                "",
-                Op::Replace { from: "abc".to_string(), to: Some("123".to_string()), count: Some(5), nocase: true }
-            ))
+            Ok(("", Op::new_replace("abc".to_string(), Some("123".to_string()), Some(5), true)))
         );
         assert_eq!(
             parse_replace(r#"replace abc "" 5 nocase "#),
-            Ok(("", Op::Replace { from: "abc".to_string(), to: None, count: Some(5), nocase: true }))
+            Ok(("", Op::new_replace("abc".to_string(), None, Some(5), true)))
         );
         assert_eq!(
             parse_replace(r#"replace abc "" nocase "#),
-            Ok(("", Op::Replace { from: "abc".to_string(), to: None, count: None, nocase: true }))
+            Ok(("", Op::new_replace("abc".to_string(), None, None, true)))
         );
         assert_eq!(
             parse_replace(r#"replace abc '' nocase "#),
-            Ok(("", Op::Replace { from: "abc".to_string(), to: None, count: None, nocase: true }))
+            Ok(("", Op::new_replace("abc".to_string(), None, None, true)))
         );
         assert_eq!(
             parse_replace(r#"replace abc def nocase "#),
-            Ok(("", Op::Replace { from: "abc".to_string(), to: Some("def".to_string()), count: None, nocase: true }))
+            Ok(("", Op::new_replace("abc".to_string(), Some("def".to_string()), None, true)))
         );
     }
 
     #[test]
     fn test_parse_uniq() {
-        assert_eq!(parse_uniq("uniq "), Ok(("", Op::Uniq { nocase: false })));
-        assert_eq!(parse_uniq("uniq nocase "), Ok(("", Op::Uniq { nocase: true })));
+        assert_eq!(parse_uniq("uniq "), Ok(("", Op::new_uniq(false))));
+        assert_eq!(parse_uniq("uniq nocase "), Ok(("", Op::new_uniq(true))));
     }
 }

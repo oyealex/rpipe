@@ -1,6 +1,6 @@
 use crate::input::Input;
-use crate::parse::cmd_arg_or_args1;
-use crate::parse::{arg, parse_integer, ParserError};
+use crate::parse::text::cmd_arg_or_args1;
+use crate::parse::text::{arg, parse_integer, ParserError};
 use crate::Integer;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
@@ -11,9 +11,9 @@ use nom::error::context;
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser};
 
-pub(super) type InputResult<'a> = IResult<&'a str, Input, ParserError<'a>>;
+pub(in crate::parse) type InputResult<'a> = IResult<&'a str, Input, ParserError<'a>>;
 
-pub(super) fn parse_input(input: &'static str) -> InputResult<'static> {
+pub(in crate::parse) fn parse_input(input: &'static str) -> InputResult<'static> {
     context(
         "Input",
         alt((
@@ -48,12 +48,12 @@ fn parse_of(input: &'static str) -> InputResult<'static> {
 fn parse_gen(input: &str) -> InputResult<'_> {
     preceded(
         (tag_no_case("gen"), space1), // 丢弃：命令+空格
-        terminated(_parse_range_in_gen, space1),
+        terminated(parse_range_in_gen, space1),
     )
     .parse(input)
 }
 
-fn _parse_range_in_gen(input: &str) -> InputResult<'_> {
+pub(in crate::parse) fn parse_range_in_gen(input: &str) -> InputResult<'_> {
     context(
         "Input::Gen",
         map(

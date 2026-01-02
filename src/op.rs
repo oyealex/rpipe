@@ -4,13 +4,55 @@ use std::collections::HashSet;
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Op {
+    /// 转为ASCII大写：
+    /// ```
+    /// upper
+    /// ```
     Upper, // OPT 2026-12-29 01:23 使用Unicode的大小写。
+    /// 转为ASCII小写：
+    /// ```
+    /// lower
+    /// ```
     Lower, // OPT 2026-12-29 01:23 使用Unicode的大小写。
+    /// 切换ASCII大小写：
+    /// ```
+    /// switch case
+    /// ```
+    SwitchCase,
+    /// 替换字串：
+    /// ```
+    /// replace <from>[ <to>[ <count>][ nocase]]
+    ///
+    /// replace abc
+    /// replace abc xyz
+    /// replace abc xyz 10
+    /// replace abc xyz nocase
+    /// replace abc xyz 10 nocase
+    /// ```
     Replace { from: String, to: Option<String>, count: Option<usize>, nocase: bool },
+    /// 去重：
+    /// ```
+    /// uniq[ nocase]
+    ///
+    /// uniq
+    /// uniq nocase
+    /// ```
     Uniq { nocase: bool },
 }
 
 impl Op {
+    pub(crate) fn new_upper() -> Op {
+        Op::Upper
+    }
+    pub(crate) fn new_lower() -> Op {
+        Op::Lower
+    }
+    pub(crate) fn new_replace(from: String, to: Option<String>, count: Option<usize>, nocase: bool) -> Op {
+        Op::Replace { from, to, count, nocase }
+    }
+    pub(crate) fn new_uniq(nocase: bool) -> Op {
+        Op::Uniq { nocase }
+    }
     pub(crate) fn wrap(self, pipe: Pipe) -> Pipe {
         match self {
             Op::Upper => pipe.op_map(|mut item| match &mut item {
@@ -37,6 +79,7 @@ impl Op {
                 }
                 Item::Integer(_) => item,
             }),
+            Op::SwitchCase => todo!(),
             Op::Replace { from, to, count, nocase } => {
                 if count == Some(0) {
                     pipe

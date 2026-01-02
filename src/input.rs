@@ -21,17 +21,47 @@ impl From<Item> for String {
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Input {
-    /// 标准输入：`rp in`
+    /// 标准输入：
+    /// ```
+    /// in
+    /// ```
     StdIn,
-    /// 外部文件
+    /// 外部文件：
+    /// ```
+    /// file <file_name>
+    /// file [ <file1_name> ]
+    /// file [ <file1_name> <file2_name> <file3_name> ]
+    /// ```
     File { files: Vec<String> },
-    /// 剪切板
+    /// 剪切板：
+    /// ```
+    /// clip
+    /// ```
     Clip,
-    /// 直接字面值
+    /// 直接字面值：
+    /// ```
+    /// of <text>
+    /// of [ <text1> ]
+    /// of [ <text1> <text2> <text3> ]
+    /// ```
     Of { values: Vec<String> },
-    /// 整数生成器
+    /// 整数生成器：
+    /// ```
+    /// gen <start>[,[[=]<end>][,<step>]]
+    ///
+    /// gen 0
+    /// gen 0,10
+    /// gen 0,=10
+    /// gen 0,10,2
+    /// gen 0,=10,2
+    /// gen 0,,2
+    /// ```
     Gen { start: Integer, end: Integer, included: bool, step: Integer },
-    /// 重复
+    /// 重复：
+    /// ```
+    /// repeat <text>
+    /// repeat <text> <count>
+    /// ```
     Repeat { value: String, count: Option<usize> },
 }
 
