@@ -22,6 +22,8 @@ fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<
                 parse_replace(args)
             } else if cmd.eq_ignore_ascii_case("uniq") {
                 parse_uniq(args)
+            } else if cmd.eq_ignore_ascii_case("peek") {
+                parse_peek(args)
             } else {
                 Ok(None)
             }
@@ -58,6 +60,15 @@ fn parse_replace(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op
 }
 
 fn parse_uniq(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {
+    args.next();
+    let nocase = args.peek().map(|nocase| nocase.eq_ignore_ascii_case("nocase")).unwrap_or(false);
+    if nocase {
+        args.next();
+    }
+    Ok(Some(Op::new_uniq(nocase)))
+}
+
+fn parse_peek(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {
     args.next();
     let nocase = args.peek().map(|nocase| nocase.eq_ignore_ascii_case("nocase")).unwrap_or(false);
     if nocase {

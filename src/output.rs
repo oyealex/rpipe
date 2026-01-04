@@ -1,3 +1,4 @@
+use crate::err::RpErr;
 use crate::input::{Item, Pipe};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -39,7 +40,7 @@ impl Output {
         Output::Clip
     }
 
-    pub(crate) fn handle(self, pipe: Pipe) {
+    pub(crate) fn handle(self, pipe: Pipe) -> Result<(), RpErr> {
         match self {
             Output::StdOut => {
                 for item in pipe {
@@ -48,35 +49,41 @@ impl Output {
                         Item::Integer(integer) => println!("{}", integer),
                     }
                 }
+                Ok(())
             }
             Output::File { file, append, crlf } => {
                 match OpenOptions::new().write(true).truncate(!append).append(append).create(true).open(&file) {
                     Ok(mut writer) => match crlf {
                         Some(true) => {
                             for x in pipe {
-                                if let Err(err) = write!(writer, "{}\r\n", String::from(x)) {
-                                    on_save_failed(&file, &err);
-                                    return;
-                                }
+                                let item = String::from(x);
+                                write!(writer, "{}\r\n", item).map_err(|err| RpErr::WriteToOutputFileErr {
+                                    file: file.clone(),
+                                    item,
+                                    err: err.to_string(),
+                                })?
                             }
+                            Ok(())
                         }
                         _ => {
                             for x in pipe {
-                                if let Err(err) = write!(writer, "{}\n", String::from(x)) {
-                                    on_save_failed(&file, &err);
-                                    return;
-                                }
+                                let item = String::from(x);
+                                write!(writer, "{}\n", item).map_err(|err| RpErr::WriteToOutputFileErr {
+                                    file: file.clone(),
+                                    item,
+                                    err: err.to_string(),
+                                })?
                             }
+                            Ok(())
                         }
                     },
-                    Err(err) => on_save_failed(&file, &err),
+                    Err(err) => Err(RpErr::OpenOutputFileErr { file, err: err.to_string() }),
                 }
             }
-            Output::Clip => {}
+            Output::Clip => {
+                let text = "Hello, Windows 剪贴板！";
+                clipboard_win::set_clipboard_string(text).map_err(|err| RpErr::WriteToClipboardErr(err.to_string()))
+            }
         }
     }
-}
-
-fn on_save_failed(file: &str, err: &std::io::Error) {
-    eprintln!("Save to File {file} error: {}", err);
 }

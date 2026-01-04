@@ -1,4 +1,5 @@
 use crate::input::{Item, Pipe};
+use crate::PipeRes;
 use std::borrow::Cow;
 use std::collections::HashSet;
 
@@ -64,9 +65,9 @@ impl Op {
     pub(crate) fn new_uniq(nocase: bool) -> Op {
         Op::Uniq { nocase }
     }
-    pub(crate) fn wrap(self, pipe: Pipe) -> Pipe {
+    pub(crate) fn wrap(self, pipe: Pipe) -> PipeRes {
         match self {
-            Op::Upper => pipe.op_map(|mut item| match &mut item {
+            Op::Upper => Ok(pipe.op_map(|mut item| match &mut item {
                 // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
                 Item::String(string) => {
                     if string.chars().all(|c| c.is_ascii_uppercase()) {
@@ -77,8 +78,8 @@ impl Op {
                     }
                 }
                 Item::Integer(_) => item,
-            }),
-            Op::Lower => pipe.op_map(|mut item| match &mut item {
+            })),
+            Op::Lower => Ok(pipe.op_map(|mut item| match &mut item {
                 // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
                 Item::String(string) => {
                     if string.chars().all(|c| c.is_ascii_lowercase()) {
@@ -89,13 +90,13 @@ impl Op {
                     }
                 }
                 Item::Integer(_) => item,
-            }),
+            })),
             Op::SwitchCase => todo!(),
             Op::Replace { from, to, count, nocase } => {
                 if count == Some(0) {
-                    pipe
+                    Ok(pipe)
                 } else {
-                    pipe.op_map(move |item| match &item {
+                    Ok(pipe.op_map(move |item| match &item {
                         Item::String(string) => {
                             let cow = replace_with_count_and_nocase(string, &*from, &*to, count, nocase);
                             match cow {
@@ -111,12 +112,12 @@ impl Op {
                                 Cow::Owned(string) => Item::String(string),
                             }
                         }
-                    })
+                    }))
                 }
             }
             Op::Uniq { nocase } => {
                 let mut seen = HashSet::new();
-                pipe.op_filter(move |item| {
+                Ok(pipe.op_filter(move |item| {
                     let key = match item {
                         Item::String(s) => {
                             if nocase {
@@ -128,11 +129,16 @@ impl Op {
                         Item::Integer(i) => i.to_string(),
                     };
                     seen.insert(key) // 返回 true 表示保留（首次出现）
-                })
+                }))
             }
-            Op::Peek{file} => {
-                todo!()
-            }
+            Op::Peek { file } => Ok(pipe.op_inspect(|item| match item {
+                Item::String(string) => {
+                    println!("{}", string);
+                }
+                Item::Integer(integer) => {
+                    println!("{}", integer);
+                }
+            })),
         }
     }
 }

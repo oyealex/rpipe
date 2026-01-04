@@ -1,5 +1,7 @@
 use crate::err::RpErr;
 use crate::output::Output;
+use crate::parse::args;
+use args::parse_general_file_info;
 use std::iter::Peekable;
 
 pub(in crate::parse::args) fn parse_output(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Output, RpErr> {
@@ -28,36 +30,7 @@ pub(in crate::parse::args) fn parse_output(args: &mut Peekable<impl Iterator<Ite
 
 fn parse_file(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Output, RpErr> {
     args.next(); // 消耗`file`
-    if let Some(file) = args.next() {
-        // 必须文件名，直接消耗
-        let (append, crlf) = if let Some(append_or_ending) = args.peek() {
-            if append_or_ending.eq_ignore_ascii_case("append") {
-                args.next(); // 消耗`append`
-                if let Some(crlf) = args.peek() {
-                    if crlf.eq_ignore_ascii_case("crlf") {
-                        args.next(); // 消耗`crlf`
-                        (true, Some(true))
-                    } else if crlf.eq_ignore_ascii_case("lf") {
-                        args.next(); // 消耗`lf`
-                        (true, Some(false))
-                    } else {
-                        (true, None)
-                    }
-                } else {
-                    (true, None)
-                }
-            } else if append_or_ending.eq_ignore_ascii_case("crlf") {
-                args.next(); // 消耗`crlf`
-                (false, Some(true))
-            } else if append_or_ending.eq_ignore_ascii_case("lf") {
-                args.next(); // 消耗`lf`
-                (false, Some(false))
-            } else {
-                (false, None)
-            }
-        } else {
-            (false, None)
-        };
+    if let Some((file, append, crlf)) = parse_general_file_info(args) {
         Ok(Output::new_file(file, append, crlf))
     } else {
         Err(RpErr::MissingArg { cmd: "to file", arg: "file" })

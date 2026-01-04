@@ -8,4 +8,4 @@ itertools = "0.14.0"
 nom = "8.0.0"
 nom-language = "0.1.0"
 thiserror = "2.0.17"
-clap = { version = "4.5.53", features = ["derive"] }
+clipboard-win = "5.4.1"

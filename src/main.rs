@@ -1,29 +1,39 @@
 #![allow(unused)] // TODO 2025-12-26 22:47 移除告警禁用
 
 use crate::err::RpErr;
-use crate::input::Input;
-use crate::op::Op;
-use crate::output::Output;
+use crate::input::Pipe;
 
+mod err;
 mod input;
 mod op;
 mod output;
 mod parse;
-mod err;
 
 /// 整数类型
 pub(crate) type Integer = i64;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut args = std::env::args().skip(1).peekable();
-    match parse::args::parse(args) {
-        Ok((input, ops, output)) => {
-            println!("input: {:?}", input);
-            println!("ops: {:?}", ops);
-            println!("output: {:?}", output);
-            output.handle(ops.into_iter().fold(input.pipe(), |pipe, op| op.wrap(pipe)));
+pub(crate) type PipeRes = Result<Pipe, RpErr>;
+
+fn main() -> Result<(), RpErr> {
+    match run() {
+        Ok(_) => Ok(()),
+        Err(err) => {
+            println!("### {err}");
+            Err(err)
         }
-        Err(err) => eprintln!("{}", err),
     }
-    Ok(())
+}
+
+fn run() -> Result<(), RpErr> {
+    let mut args = std::env::args().skip(1).peekable();
+    let (input, ops, output) = parse::args::parse(args)?;
+    // TODO 2026-01-05 01:41 仅选项要求打印时才打印
+    println!("input: {:?}", input);
+    println!("ops: {:?}", ops);
+    println!("output: {:?}", output);
+    let mut pipe = input.pipe()?;
+    for op in ops {
+        pipe = op.wrap(pipe)?;
+    }
+    output.handle(pipe)
 }
