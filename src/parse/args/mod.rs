@@ -6,11 +6,13 @@ use crate::parse::args::input::parse_input;
 use crate::parse::args::op::parse_ops;
 use crate::parse::args::output::parse_output;
 use std::iter::Peekable;
-use std::str::FromStr;
 
 mod input;
 mod op;
 mod output;
+mod config;
+
+pub use config::parse_configs;
 
 pub(crate) fn parse(mut args: Peekable<impl Iterator<Item = String>>) -> Result<(Input, Vec<Op>, Output), RpErr> {
     let input = parse_input(&mut args)?;

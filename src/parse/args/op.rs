@@ -13,21 +13,16 @@ pub(in crate::parse::args) fn parse_ops(args: &mut Peekable<impl Iterator<Item =
 
 fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {
     match args.peek() {
-        Some(cmd) => {
-            if cmd.eq_ignore_ascii_case("upper") {
-                parse_upper(args)
-            } else if cmd.eq_ignore_ascii_case("lower") {
-                parse_lower(args)
-            } else if cmd.eq_ignore_ascii_case("case") {
-                parse_case(args)
-            } else if cmd.eq_ignore_ascii_case("replace") {
-                parse_replace(args)
-            } else if cmd.eq_ignore_ascii_case("uniq") {
-                parse_uniq(args)
-            } else if cmd.eq_ignore_ascii_case("peek") {
-                parse_peek(args)
-            } else {
-                Ok(None)
+        Some(op) => {
+            let lower_op = op.to_ascii_lowercase();
+            match lower_op.as_str() {
+                "upper" => parse_upper(args),
+                "lower" => parse_lower(args),
+                "case" => parse_case(args),
+                "replace" => parse_replace(args),
+                "uniq" => parse_uniq(args),
+                "peek" => parse_peek(args),
+                _ => Ok(None),
             }
         }
         None => Ok(None),

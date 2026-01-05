@@ -11,14 +11,12 @@ pub(in crate::parse::args) fn parse_output(args: &mut Peekable<impl Iterator<Ite
         args.next(); // 消耗`to`
         match args.peek() {
             Some(output) => {
-                if output.eq_ignore_ascii_case("file") {
-                    parse_file(args)
-                } else if output.eq_ignore_ascii_case("clip") {
-                    parse_clip(args)
-                } else if output.eq_ignore_ascii_case("out") {
-                    parse_std_out(args)
-                } else {
-                    Ok(Output::new_std_out())
+                let lower_output = output.to_ascii_lowercase();
+                match lower_output.as_str() {
+                    "file" => parse_file(args),
+                    "clip" => parse_clip(args),
+                    "out" => parse_std_out(args),
+                    _ => Ok(Output::new_std_out()),
                 }
             }
             None => Ok(Output::new_std_out()),

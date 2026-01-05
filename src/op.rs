@@ -1,3 +1,4 @@
+use crate::config::{is_nocase, Config};
 use crate::input::{Item, Pipe};
 use crate::RpRes;
 use std::borrow::Cow;
@@ -68,7 +69,7 @@ impl Op {
         Op::Uniq { nocase }
     }
 
-    pub(crate) fn wrap(self, pipe: Pipe) -> RpRes {
+    pub(crate) fn wrap(self, pipe: Pipe, configs: &'static [Config]) -> RpRes {
         match self {
             Op::Upper => Ok(pipe.op_map(|mut item| match &mut item {
                 // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
@@ -117,7 +118,8 @@ impl Op {
                 } else {
                     Ok(pipe.op_map(move |item| match &item {
                         Item::String(string) => {
-                            let cow = replace_with_count_and_nocase(string, &*from, &*to, count, nocase);
+                            let cow =
+                                replace_with_count_and_nocase(string, &*from, &*to, count, is_nocase(nocase, configs));
                             match cow {
                                 Cow::Borrowed(_) => item,
                                 Cow::Owned(string) => Item::String(string),
@@ -125,7 +127,13 @@ impl Op {
                         }
                         Item::Integer(integer) => {
                             let integer_str = integer.to_string();
-                            let cow = replace_with_count_and_nocase(&integer_str, &*from, &*to, count, nocase);
+                            let cow = replace_with_count_and_nocase(
+                                &integer_str,
+                                &*from,
+                                &*to,
+                                count,
+                                is_nocase(nocase, configs),
+                            );
                             match cow {
                                 Cow::Borrowed(_) => item,
                                 Cow::Owned(string) => Item::String(string),
@@ -139,7 +147,7 @@ impl Op {
                 Ok(pipe.op_filter(move |item| {
                     let key = match item {
                         Item::String(s) => {
-                            if nocase {
+                            if is_nocase(nocase, configs) {
                                 s.to_ascii_uppercase()
                             } else {
                                 s.clone()

@@ -1,8 +1,11 @@
 #![allow(unused)] // TODO 2025-12-26 22:47 移除告警禁用
 
+use crate::config::Config;
 use crate::err::RpErr;
 use crate::input::Pipe;
+use itertools::Itertools;
 
+mod config;
 mod err;
 mod input;
 mod op;
@@ -22,14 +25,20 @@ fn main() {
 
 fn run() -> Result<(), RpErr> {
     let mut args = std::env::args().skip(1).peekable();
+    let configs = parse::args::parse_configs(&mut args);
     let (input, ops, output) = parse::args::parse(args)?;
-    // TODO 2026-01-05 01:41 仅选项要求打印时才打印
-    println!("input: {:?}", input);
-    println!("ops: {:?}", ops);
-    println!("output: {:?}", output);
+    if configs.contains(&Config::Verbose) {
+        println!("Input:");
+        println!("    {:?}", input);
+        println!("Op:");
+        println!("{}", ops.iter().map(|op| format!("    {:?}", op)).join("\n"));
+        println!("Output:");
+        println!("    {:?}", output);
+    }
+    let configs: &'static mut [Config] = configs.leak();
     let mut pipe = input.pipe()?;
     for op in ops {
-        pipe = op.wrap(pipe)?;
+        pipe = op.wrap(pipe, configs)?;
     }
-    output.handle(pipe)
+    if !configs.contains(&Config::DryRun) { output.handle(pipe) } else { Ok(()) }
 }

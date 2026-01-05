@@ -1,6 +1,7 @@
 pub mod input;
 pub mod op;
 pub mod output;
+mod config;
 
 use crate::err::RpErr;
 use crate::input::Input;
@@ -21,6 +22,7 @@ use nom::sequence::{delimited, preceded, terminated};
 use nom::{ExtendInto, IResult, Parser};
 use nom_language::error::VerboseError;
 use std::borrow::Cow;
+pub use config::parse_configs;
 
 /// 解析错误的类型
 pub(crate) type ParserError<'a> = VerboseError<&'a str>;

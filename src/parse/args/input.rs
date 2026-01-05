@@ -5,21 +5,16 @@ use std::iter::Peekable;
 
 pub(in crate::parse::args) fn parse_input(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
     match args.peek() {
-        Some(cmd) => {
-            if cmd.eq_ignore_ascii_case("in") {
-                parse_std_in(args)
-            } else if cmd.eq_ignore_ascii_case("file") {
-                parse_file(args)
-            } else if cmd.eq_ignore_ascii_case("clip") {
-                parse_clip(args)
-            } else if cmd.eq_ignore_ascii_case("of") {
-                parse_of(args)
-            } else if cmd.eq_ignore_ascii_case("gen") {
-                parse_gen(args)
-            } else if cmd.eq_ignore_ascii_case("repeat") {
-                parse_repeat(args)
-            } else {
-                Ok(Input::new_std_in())
+        Some(input) => {
+            let lower_input = input.to_ascii_lowercase();
+            match lower_input.as_str() {
+                "in" => parse_std_in(args),
+                "file" => parse_file(args),
+                "clip" => parse_clip(args),
+                "of" => parse_of(args),
+                "gen" => parse_gen(args),
+                "repeat" => parse_repeat(args),
+                _ => Ok(Input::new_std_in()),
             }
         }
         None => Ok(Input::new_std_in()),
@@ -73,8 +68,8 @@ fn parse_repeat(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Inp
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Integer;
     use crate::parse::args::build_args;
+    use crate::Integer;
 
     #[test]
     fn test_parse_std_in() {
@@ -222,6 +217,5 @@ mod tests {
         let mut args = build_args("repeat");
         assert_eq!(Err(RpErr::MissingArg { cmd: "repeat", arg: "value" }), parse_input(&mut args));
         assert!(args.next().is_none());
-
     }
 }

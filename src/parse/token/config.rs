@@ -1,0 +1,50 @@
+use crate::config::Config;
+use crate::parse::token::ParserError;
+use nom::branch::alt;
+use nom::bytes::complete::tag;
+use nom::character::complete::space1;
+use nom::combinator::map;
+use nom::error::context;
+use nom::sequence::terminated;
+use nom::{IResult, Parser};
+
+pub fn parse_configs(input: &str) -> (&str, Vec<Config>) {
+    let mut configs = Vec::new();
+    while let Ok((input, config)) = parse_config(input) {
+        configs.push(config);
+    }
+    (input, configs)
+}
+
+fn parse_config(input: &str) -> IResult<&str, Config, ParserError<'_>> {
+    context(
+        "Config",
+        terminated(
+            alt((
+                map(tag("-h"), |_| Config::Help),
+                map(tag("-V"), |_| Config::Version),
+                map(tag("-v"), |_| Config::Verbose),
+                map(tag("-d"), |_| Config::DryRun),
+                map(tag("--nocase"), |_| Config::Nocase),
+            )),
+            space1,
+        ),
+    )
+    .parse(input)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_config() {
+        assert_eq!(parse_config("-h "), Ok(("", Config::Help)));
+        assert_eq!(parse_config("-V "), Ok(("", Config::Version)));
+        assert_eq!(parse_config("-v "), Ok(("", Config::Verbose)));
+        assert_eq!(parse_config("-d "), Ok(("", Config::DryRun)));
+        assert_eq!(parse_config("--nocase "), Ok(("", Config::Nocase)));
+        assert!(parse_config("-h").is_err());
+        assert!(parse_config("abc ").is_err());
+    }
+}
