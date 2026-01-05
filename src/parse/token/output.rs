@@ -24,15 +24,6 @@ pub(in crate::parse) fn parse_out(input: &'static str) -> OutputResult<'static> 
     .parse(input)
 }
 
-/// 解析：
-/// ```
-/// to file file_name
-/// to file file_name append
-/// to file file_name lf
-/// to file file_name crlf
-/// to file file_name append lf
-/// to file file_name append crlf
-/// ```
 fn parse_to_file(input: &'static str) -> OutputResult<'static> {
     context(
         "Output::File",
@@ -56,16 +47,18 @@ fn parse_to_file(input: &'static str) -> OutputResult<'static> {
     .parse(input)
 }
 
-/// 解析：
-/// ```
-/// to clip
-/// ```
 fn parse_to_clip(input: &str) -> OutputResult<'_> {
     context(
         "Output::Clip",
         map(
-            (tag_no_case("to"), space1, tag_no_case("clip"), space1), // 丢弃：`to clip `
-            |_| Output::new_clip(),
+            (preceded(
+                (tag_no_case("to"), space1, tag_no_case("clip")), // 固定`to clip`
+                terminated(
+                    opt(preceded(space1, alt((tag_no_case("lf"), tag_no_case("crlf"))))), // 换行符
+                    space1,                                                               // 结尾空格
+                ),
+            )), // 丢弃：`to clip `
+            |ending_opt: Option<&str>| Output::new_clip(ending_opt.map(|s| s.eq_ignore_ascii_case("crlf"))),
         ),
     )
     .parse(input)
@@ -101,8 +94,10 @@ mod tests {
 
     #[test]
     fn test_parse_to_clip() {
-        assert_eq!(parse_to_clip("to clip "), Ok(("", Output::new_clip())));
-        assert_eq!(parse_to_clip("to  clip  "), Ok(("", Output::new_clip())));
+        assert_eq!(parse_to_clip("to clip "), Ok(("", Output::new_clip(None))));
+        assert_eq!(parse_to_clip("to  clip  "), Ok(("", Output::new_clip(None))));
+        assert_eq!(parse_to_clip("to clip lf "), Ok(("", Output::new_clip(Some(false)))));
+        assert_eq!(parse_to_clip("to clip crlf "), Ok(("", Output::new_clip(Some(true)))));
         assert!(parse_to_clip("to ").is_err());
     }
 }

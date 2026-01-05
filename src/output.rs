@@ -1,5 +1,6 @@
 use crate::err::RpErr;
 use crate::input::{Item, Pipe};
+use itertools::Itertools;
 use std::fs::OpenOptions;
 use std::io::Write;
 
@@ -12,7 +13,7 @@ pub(crate) enum Output {
     StdOut,
     /// 输出到文件：
     /// ```
-    /// to file <file_name>[ append][ cr|crlf]
+    /// to file <file_name>[ append][ lf|crlf]
     ///
     /// to file file_name
     /// to file file_name append
@@ -24,9 +25,13 @@ pub(crate) enum Output {
     File { file: String, append: bool, crlf: Option<bool> },
     /// 输出到剪切板：
     /// ```
+    /// to clip[ lf|crlf]
+    ///
     /// to clip
+    /// to clip lf
+    /// to clip crlf
     /// ```
-    Clip,
+    Clip { crlf: Option<bool> },
 }
 
 impl Output {
@@ -36,8 +41,8 @@ impl Output {
     pub(crate) fn new_file(file: String, append: bool, crlf: Option<bool>) -> Self {
         Output::File { file, append, crlf }
     }
-    pub(crate) fn new_clip() -> Self {
-        Output::Clip
+    pub(crate) fn new_clip(crlf: Option<bool>) -> Self {
+        Output::Clip { crlf }
     }
 
     pub(crate) fn handle(self, pipe: Pipe) -> Result<(), RpErr> {
@@ -80,9 +85,9 @@ impl Output {
                     Err(err) => Err(RpErr::OpenOutputFileErr { file, err: err.to_string() }),
                 }
             }
-            Output::Clip => {
-                let text = "Hello, Windows 剪贴板！";
-                clipboard_win::set_clipboard_string(text).map_err(|err| RpErr::WriteToClipboardErr(err.to_string()))
+            Output::Clip { crlf } => {
+                let text = pipe.map(String::from).join(if crlf.unwrap_or(false) { "\r\n" } else { "\n" });
+                clipboard_win::set_clipboard_string(&text).map_err(|err| RpErr::WriteToClipboardErr(err.to_string()))
             }
         }
     }

@@ -12,15 +12,11 @@ mod parse;
 /// 整数类型
 pub(crate) type Integer = i64;
 
-pub(crate) type PipeRes = Result<Pipe, RpErr>;
+pub(crate) type RpRes = Result<Pipe, RpErr>;
 
-fn main() -> Result<(), RpErr> {
-    match run() {
-        Ok(_) => Ok(()),
-        Err(err) => {
-            println!("### {err}");
-            Err(err)
-        }
+fn main() {
+    if let Err(e) = run() {
+        e.termination();
     }
 }
 

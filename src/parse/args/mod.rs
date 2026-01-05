@@ -60,7 +60,6 @@ where
     if let Some(value) = args.peek()
         && f(value)
     {
-        args.next();
         Some(args.next().unwrap())
     } else {
         None
@@ -134,4 +133,9 @@ fn parse_general_file_info(args: &mut Peekable<impl Iterator<Item = String>>) ->
     } else {
         None
     }
+}
+
+#[cfg(test)]
+fn build_args(args_line: &'static str) -> Peekable<impl Iterator<Item = String>> {
+    args_line.split(' ').into_iter().map(String::from).peekable()
 }

@@ -1,7 +1,7 @@
 use std::process::{ExitCode, Termination};
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub(crate) enum RpErr {
     #[error("[Input Token] Invalid args: {0}")]
     ParseInputTokenErr(String),
@@ -57,7 +57,7 @@ pub(crate) enum RpErr {
 
 impl Termination for RpErr {
     fn report(self) -> ExitCode {
-        eprintln!(">>{}", self);
+        eprintln!("{}", self);
         ExitCode::from(self.exit_code())
     }
 }

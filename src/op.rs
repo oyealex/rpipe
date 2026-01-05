@@ -1,5 +1,5 @@
 use crate::input::{Item, Pipe};
-use crate::PipeRes;
+use crate::RpRes;
 use std::borrow::Cow;
 use std::collections::HashSet;
 
@@ -17,9 +17,9 @@ pub(crate) enum Op {
     Lower, // OPT 2026-12-29 01:23 使用Unicode的大小写。
     /// 切换ASCII大小写：
     /// ```
-    /// switch case
+    /// case
     /// ```
-    SwitchCase,
+    Case,
     /// 替换字串：
     /// ```
     /// replace <from> <to>[ <count>][ nocase]
@@ -55,17 +55,20 @@ impl Op {
     pub(crate) fn new_lower() -> Op {
         Op::Lower
     }
+    pub(crate) fn new_case() -> Op {
+        Op::Case
+    }
     pub(crate) fn new_replace(from: String, to: String, count: Option<usize>, nocase: bool) -> Op {
         Op::Replace { from, to, count, nocase }
     }
     pub(crate) fn new_peek(file: Option<String>) -> Op {
         Op::Peek { file }
     }
-
     pub(crate) fn new_uniq(nocase: bool) -> Op {
         Op::Uniq { nocase }
     }
-    pub(crate) fn wrap(self, pipe: Pipe) -> PipeRes {
+
+    pub(crate) fn wrap(self, pipe: Pipe) -> RpRes {
         match self {
             Op::Upper => Ok(pipe.op_map(|mut item| match &mut item {
                 // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
@@ -91,7 +94,23 @@ impl Op {
                 }
                 Item::Integer(_) => item,
             })),
-            Op::SwitchCase => todo!(),
+            Op::Case => {
+                Ok(pipe.op_map(|mut item| match &mut item {
+                    Item::String(string) => {
+                        // 只修改ASCII字母（范围A-Z/a-z），而ASCII字符在UTF-8中就是单字节，
+                        // 且切换大小写后仍是合法ASCII（从而合法UTF-8）。
+                        for b in unsafe { string.as_bytes_mut() } {
+                            match b {
+                                b'A'..=b'Z' => *b += b'a' - b'A',
+                                b'a'..=b'z' => *b -= b'a' - b'A',
+                                _ => {}
+                            }
+                        }
+                        item
+                    }
+                    Item::Integer(_) => item,
+                }))
+            }
             Op::Replace { from, to, count, nocase } => {
                 if count == Some(0) {
                     Ok(pipe)

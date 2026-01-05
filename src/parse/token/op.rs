@@ -13,7 +13,7 @@ pub(in crate::parse) type OpsResult<'a> = IResult<&'a str, Vec<Op>, ParserError<
 pub(in crate::parse) type OpResult<'a> = IResult<&'a str, Op, ParserError<'a>>;
 
 pub(in crate::parse) fn parse_ops(input: &'static str) -> OpsResult<'static> {
-    context("Op", many0(alt((parse_upper, parse_lower, parse_replace, parse_uniq)))).parse(input)
+    context("Op", many0(alt((parse_upper, parse_lower, parse_case, parse_replace, parse_uniq)))).parse(input)
 }
 
 fn parse_upper(input: &str) -> OpResult<'_> {
@@ -22,6 +22,10 @@ fn parse_upper(input: &str) -> OpResult<'_> {
 
 fn parse_lower(input: &str) -> OpResult<'_> {
     context("Op::Lower", map(terminated(tag_no_case("lower"), space1), |_| Op::new_lower())).parse(input)
+}
+
+fn parse_case(input: &str) -> OpResult<'_> {
+    context("Op::Case", map(terminated(tag_no_case("case"), space1), |_| Op::new_case())).parse(input)
 }
 
 fn parse_replace(input: &'static str) -> OpResult<'static> {
@@ -86,9 +90,14 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_case() {
+        assert_eq!(parse_case("case "), Ok(("", Op::new_case())));
+    }
+
+    #[test]
     fn test_parse_replace() {
         assert_eq!(
-            parse_replace(r#"replace abc """#),
+            parse_replace(r#"replace abc "" "#),
             Ok(("", Op::new_replace("abc".to_string(), "".to_string(), None, false)))
         );
         assert_eq!(

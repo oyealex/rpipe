@@ -1,5 +1,5 @@
 use crate::err::RpErr;
-use crate::{Integer, PipeRes};
+use crate::{Integer, RpRes};
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, BufReader};
@@ -43,9 +43,9 @@ pub(crate) enum Input {
     Clip,
     /// 直接字面值：
     /// ```
-    /// of <text>
-    /// of [ <text1> ]
-    /// of [ <text1> <text2> <text3> ]
+    /// of <value>
+    /// of [ <value1> ]
+    /// of [ <value1> <value2> <value3> ]
     /// ```
     Of { values: Vec<String> },
     /// 整数生成器：
@@ -62,10 +62,31 @@ pub(crate) enum Input {
     Gen { start: Integer, end: Integer, included: bool, step: Integer },
     /// 重复：
     /// ```
-    /// repeat <text>
-    /// repeat <text> <count>
+    /// repeat <value>
+    /// repeat <value> <count>
     /// ```
     Repeat { value: String, count: Option<usize> },
+}
+
+impl Input {
+    pub(crate) fn new_std_in() -> Input {
+        Input::StdIn
+    }
+    pub(crate) fn new_file(files: Vec<String>) -> Input {
+        Input::File { files }
+    }
+    pub(crate) fn new_clip() -> Input {
+        Input::Clip
+    }
+    pub(crate) fn new_of(values: Vec<String>) -> Input {
+        Input::Of { values }
+    }
+    pub(crate) fn new_gen(start: Integer, end: Integer, included: bool, step: Integer) -> Input {
+        Input::Gen { start, end, included, step }
+    }
+    pub(crate) fn new_repeat(value: String, count: Option<usize>) -> Input {
+        Input::Repeat { value, count }
+    }
 }
 
 pub(crate) enum Pipe {
@@ -108,7 +129,7 @@ impl Iterator for Pipe {
 }
 
 impl Input {
-    pub(crate) fn pipe(self) -> PipeRes {
+    pub(crate) fn pipe(self) -> RpRes {
         match self {
             Input::StdIn => Ok(Pipe::Unbounded(Box::new(
                 io::stdin()
@@ -253,11 +274,19 @@ mod iter_tests {
     }
 
     #[test]
-    fn test_reverted_range() {
+    fn test_reverted_range_and_positive() {
         assert_eq!(range_to_iter(10, 0, false, 1).collect::<Vec<_>>(), (10..0).collect::<Vec<_>>());
         assert_eq!(range_to_iter(10, 0, true, 1).collect::<Vec<_>>(), (10..=0).collect::<Vec<_>>());
         assert_eq!(range_to_iter(10, 0, false, 2).collect::<Vec<_>>(), (10..0).step_by(2).collect::<Vec<_>>());
         assert_eq!(range_to_iter(10, 0, true, 2).collect::<Vec<_>>(), (10..=0).step_by(2).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn test_reverted_range_and_negative() {
+        assert_eq!(range_to_iter(10, 0, false, -1).collect::<Vec<_>>(), (10..0).rev().collect::<Vec<_>>());
+        assert_eq!(range_to_iter(10, 0, true, -1).collect::<Vec<_>>(), (10..=0).rev().collect::<Vec<_>>());
+        assert_eq!(range_to_iter(10, 0, false, -2).collect::<Vec<_>>(), (10..0).rev().step_by(2).collect::<Vec<_>>());
+        assert_eq!(range_to_iter(10, 0, true, -2).collect::<Vec<_>>(), (10..=0).rev().step_by(2).collect::<Vec<_>>());
     }
 
     #[test]

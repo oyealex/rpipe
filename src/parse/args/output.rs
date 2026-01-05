@@ -39,7 +39,20 @@ fn parse_file(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Outpu
 
 fn parse_clip(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Output, RpErr> {
     args.next(); // 消耗`clip`
-    Ok(Output::new_clip())
+    let ending = if let Some(crlf) = args.peek() {
+        if crlf.eq_ignore_ascii_case("crlf") {
+            args.next(); // 消耗`crlf`
+            Some(true)
+        } else if crlf.eq_ignore_ascii_case("lf") {
+            args.next(); // 消耗`lf`
+            Some(false)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    Ok(Output::new_clip(ending))
 }
 
 fn parse_std_out(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Output, RpErr> {
