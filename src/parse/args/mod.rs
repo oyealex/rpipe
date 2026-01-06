@@ -7,10 +7,10 @@ use crate::parse::args::op::parse_ops;
 use crate::parse::args::output::parse_output;
 use std::iter::Peekable;
 
+mod config;
 mod input;
 mod op;
 mod output;
-mod config;
 
 pub use config::parse_configs;
 
@@ -22,37 +22,17 @@ pub(crate) fn parse(mut args: Peekable<impl Iterator<Item = String>>) -> Result<
     if !remaining.is_empty() { Err(RpErr::UnknownArgs { args: remaining }) } else { Ok((input, ops, output)) }
 }
 
-fn parse_arg_or_arg1(
+fn parse_arg1(
     args: &mut Peekable<impl Iterator<Item = String>>, cmd: &'static str, arg: &'static str,
 ) -> Result<Vec<String>, RpErr> {
-    match args.next() {
-        // 至少有一个值，直接消耗
-        Some(value) => {
-            if value == "[" {
-                // 多值开始
-                let mut values = Vec::new();
-                while let Some(value) = args.next() {
-                    if value == "]" {
-                        // 多值结束
-                        return if values.is_empty() { Err(RpErr::ArgNotEnough { cmd, arg }) } else { Ok(values) };
-                    } else {
-                        values.push(escaped(value))
-                    }
-                }
-                Err(RpErr::UnclosingMultiArg { cmd, arg })
-            } else if value == "]" {
-                // 未开启的多值结束
-                Err(RpErr::UnexpectedClosingBracket { cmd, arg })
-            } else {
-                Ok(vec![escaped(value)])
-            }
-        }
-        None => Err(RpErr::MissingArg { cmd, arg }),
+    let mut res = Vec::new();
+    while let Some(value) = args.peek()
+        && crate::parse::token::cmd_token(value).is_err()
+    {
+        let arg = args.next().unwrap();
+        res.push(if let Some(stripped) = arg.strip_prefix("::") { format!(":{}", stripped) } else { arg });
     }
-}
-
-fn escaped(arg: String) -> String {
-    if arg == "\\[" || arg == "\\]" { arg[1..].to_string() } else { arg }
+    if res.is_empty() { Err(RpErr::MissingArg { cmd, arg }) } else { Ok(res) }
 }
 
 fn consume_if<F>(args: &mut Peekable<impl Iterator<Item = String>>, f: F) -> Option<String>
@@ -101,9 +81,15 @@ where
     }
 }
 
-fn parse_general_file_info(args: &mut Peekable<impl Iterator<Item = String>>) -> Option<(String, bool, Option<bool>)> {
-    if let Some(file) = args.next() {
-        // 必须文件名，直接消耗
+/// 解析一般的文件信息`file[ append][ <crlf|lf>]`
+/// 如果`optional`为`false`，则file参数必须非命令格式
+fn parse_general_file_info(
+    args: &mut Peekable<impl Iterator<Item = String>>, optional: bool,
+) -> Option<(String, bool, Option<bool>)> {
+    if let Some(value) = args.peek()
+        && (optional && crate::parse::token::cmd_token(value).is_err() || !optional)
+    {
+        let file = args.next().unwrap();
         let (append, crlf) = if let Some(append_or_ending) = args.peek() {
             if append_or_ending.eq_ignore_ascii_case("append") {
                 args.next(); // 消耗`append`

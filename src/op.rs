@@ -1,8 +1,11 @@
 use crate::config::{is_nocase, Config};
+use crate::err::RpErr;
 use crate::input::{Item, Pipe};
 use crate::RpRes;
 use std::borrow::Cow;
 use std::collections::HashSet;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Op {
@@ -39,14 +42,18 @@ pub(crate) enum Op {
     /// :uniq nocase
     /// ```
     Uniq { nocase: bool },
-    /// 调试：
+    /// 打印值到标准输出：
     /// ```
-    /// :peek[ <file_name>]
-    ///
     /// :peek
+    /// ```
+    PeekToStdOut,
+    /// 打印值到文件：
+    /// ```
+    /// :peek <file_name>
+    ///
     /// :peek file1.txt
     /// ```
-    Peek { file: Option<String> },
+    PeekToFile { file: String, append: bool, crlf: Option<bool> },
 }
 
 impl Op {
@@ -62,8 +69,11 @@ impl Op {
     pub(crate) fn new_replace(from: String, to: String, count: Option<usize>, nocase: bool) -> Op {
         Op::Replace { from, to, count, nocase }
     }
-    pub(crate) fn new_peek(file: Option<String>) -> Op {
-        Op::Peek { file }
+    pub(crate) fn new_peek_to_std_out() -> Op {
+        Op::PeekToStdOut
+    }
+    pub(crate) fn new_peek_to_file(file: String, append: bool, crlf: Option<bool>) -> Op {
+        Op::PeekToFile { file, append, crlf }
     }
     pub(crate) fn new_uniq(nocase: bool) -> Op {
         Op::Uniq { nocase }
@@ -158,7 +168,7 @@ impl Op {
                     seen.insert(key) // 返回 true 表示保留（首次出现）
                 }))
             }
-            Op::Peek { file } => Ok(pipe.op_inspect(|item| match item {
+            Op::PeekToStdOut => Ok(pipe.op_inspect(|item| match item {
                 Item::String(string) => {
                     println!("{}", string);
                 }
@@ -166,6 +176,24 @@ impl Op {
                     println!("{}", integer);
                 }
             })),
+            Op::PeekToFile { file, append, crlf } => {
+                match OpenOptions::new().write(true).truncate(!append).append(append).create(true).open(&file) {
+                    Ok(mut writer) => {
+                        let ending = if crlf.unwrap_or(false) { "\r\n" } else { "\n" };
+                        Ok(pipe.op_inspect(move |item| {
+                            if let Err(err) = write!(writer, "{item}{ending}") {
+                                RpErr::WriteToFileErr {
+                                    file: file.clone(),
+                                    item: item.to_string(),
+                                    err: err.to_string(),
+                                }
+                                .termination()
+                            }
+                        }))
+                    }
+                    Err(err) => RpErr::OpenFileErr { file, err: err.to_string() }.termination(),
+                }
+            }
         }
     }
 }

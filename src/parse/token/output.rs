@@ -1,6 +1,6 @@
 use crate::output::Output;
-use crate::parse::token::arg;
 use crate::parse::token::ParserError;
+use crate::parse::token::general_file_info;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::space1;
@@ -30,12 +30,8 @@ fn parse_to_file(input: &str) -> OutputResult<'_> {
         map(
             terminated(
                 preceded(
-                    (tag_no_case(":to"), space1, tag_no_case("file"), space1), // 丢弃：`to file `
-                    (
-                        arg,                                                                  // 文件
-                        opt((space1, tag_no_case("append"))),                                 // 是否追加
-                        opt(preceded(space1, alt((tag_no_case("lf"), tag_no_case("crlf"))))), // 换行符
-                    ),
+                    (tag_no_case(":to"), space1, tag_no_case("file"), space1), // 丢弃：`:to file `
+                    general_file_info(false),
                 ),
                 space1, // 丢弃：结尾空格
             ),
@@ -52,7 +48,7 @@ fn parse_to_clip(input: &str) -> OutputResult<'_> {
         "Output::Clip",
         map(
             preceded(
-                (tag_no_case(":to"), space1, tag_no_case("clip")), // 固定`to clip`
+                (tag_no_case(":to"), space1, tag_no_case("clip")), // 固定`:to clip`
                 terminated(
                     opt(preceded(space1, alt((tag_no_case("lf"), tag_no_case("crlf"))))), // 换行符
                     space1,                                                               // 结尾空格

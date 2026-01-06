@@ -1,5 +1,5 @@
 use crate::op::Op;
-use crate::parse::token::{arg, ParserError};
+use crate::parse::token::{arg, general_file_info, ParserError};
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{space1, usize};
@@ -13,7 +13,8 @@ pub(in crate::parse) type OpsResult<'a> = IResult<&'a str, Vec<Op>, ParserError<
 pub(in crate::parse) type OpResult<'a> = IResult<&'a str, Op, ParserError<'a>>;
 
 pub(in crate::parse) fn parse_ops(input: &str) -> OpsResult<'_> {
-    context("Op", many0(alt((parse_upper, parse_lower, parse_case, parse_replace, parse_uniq)))).parse(input)
+    context("Op", many0(alt((parse_upper, parse_lower, parse_case, parse_replace, parse_uniq, parse_peek))))
+        .parse(input)
 }
 
 fn parse_upper(input: &str) -> OpResult<'_> {
@@ -36,10 +37,10 @@ fn parse_replace(input: &str) -> OpResult<'_> {
                 (tag_no_case(":replace"), space1), // 丢弃：命令+空格
                 terminated(
                     // 兼容:
-                    //  abc def
-                    //  abc def 10
-                    //  abc def 10 nocase
-                    //  abc def    nocase
+                    //  from to
+                    //  from to 10
+                    //  from to 10 nocase
+                    //  from to    nocase
                     (
                         arg, // 被替换文本
                         preceded(
@@ -70,6 +71,25 @@ fn parse_uniq(input: &str) -> OpResult<'_> {
                 space1,
             ), // 丢弃：结尾空格
             |nocase_opt| Op::new_uniq(nocase_opt.is_some()),
+        ),
+    )
+    .parse(input)
+}
+
+fn parse_peek(input: &str) -> OpResult<'_> {
+    context(
+        "Op::Peek",
+        map(
+            preceded(
+                (tag_no_case(":peek"), space1), // 丢弃命令和空格
+                opt(general_file_info(true)),   // 可选文件信息
+            ),
+            |file_info| match file_info {
+                Some((file, append_opt, ending_opt)) => {
+                    Op::new_peek_to_file(file, append_opt.is_some(), ending_opt.map(|s| s.eq_ignore_ascii_case("crlf")))
+                }
+                None => Op::new_peek_to_std_out(),
+            },
         ),
     )
     .parse(input)
@@ -134,5 +154,28 @@ mod tests {
     fn test_parse_uniq() {
         assert_eq!(parse_uniq(":uniq "), Ok(("", Op::new_uniq(false))));
         assert_eq!(parse_uniq(":uniq nocase "), Ok(("", Op::new_uniq(true))));
+    }
+
+    #[test]
+    fn test_parse_peek() {
+        assert_eq!(parse_peek(":peek "), Ok(("", Op::new_peek_to_std_out())));
+        assert_eq!(parse_peek(":peek :abc"), Ok((":abc", Op::new_peek_to_std_out())));
+        assert_eq!(parse_peek(":peek out.txt"), Ok(("", Op::new_peek_to_file("out.txt".to_string(), false, None))));
+        assert_eq!(
+            parse_peek(":peek out.txt append"),
+            Ok(("", Op::new_peek_to_file("out.txt".to_string(), true, None)))
+        );
+        assert_eq!(
+            parse_peek(":peek out.txt append crlf"),
+            Ok(("", Op::new_peek_to_file("out.txt".to_string(), true, Some(true))))
+        );
+        assert_eq!(
+            parse_peek(":peek out.txt crlf"),
+            Ok(("", Op::new_peek_to_file("out.txt".to_string(), false, Some(true))))
+        );
+        assert_eq!(
+            parse_peek(r#":peek "out .txt" "#),
+            Ok((" ", Op::new_peek_to_file("out .txt".to_string(), false, None)))
+        );
     }
 }

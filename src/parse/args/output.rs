@@ -28,7 +28,7 @@ pub(in crate::parse::args) fn parse_output(args: &mut Peekable<impl Iterator<Ite
 
 fn parse_file(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Output, RpErr> {
     args.next(); // 消耗`file`
-    if let Some((file, append, crlf)) = parse_general_file_info(args) {
+    if let Some((file, append, crlf)) = parse_general_file_info(args, false) {
         Ok(Output::new_file(file, append, crlf))
     } else {
         Err(RpErr::MissingArg { cmd: ":to file", arg: "file" })

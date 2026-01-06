@@ -1,5 +1,6 @@
 use crate::err::RpErr;
 use crate::{Integer, RpRes};
+use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, BufReader};
@@ -17,6 +18,24 @@ impl From<Item> for String {
         match value {
             Item::String(string) => string,
             Item::Integer(integer) => integer.to_string(),
+        }
+    }
+}
+
+impl From<&Item> for String {
+    fn from(value: &Item) -> Self {
+        match value {
+            Item::String(string) => string.to_string(),
+            Item::Integer(integer) => integer.to_string(),
+        }
+    }
+}
+
+impl Display for Item {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Item::String(string) => write!(f, "{string}"),
+            Item::Integer(integer) => write!(f, "{integer}"),
         }
     }
 }

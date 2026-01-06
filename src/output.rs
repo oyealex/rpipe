@@ -58,31 +58,18 @@ impl Output {
             }
             Output::File { file, append, crlf } => {
                 match OpenOptions::new().write(true).truncate(!append).append(append).create(true).open(&file) {
-                    Ok(mut writer) => match crlf {
-                        Some(true) => {
-                            for x in pipe {
-                                let item = String::from(x);
-                                write!(writer, "{}\r\n", item).map_err(|err| RpErr::WriteToOutputFileErr {
-                                    file: file.clone(),
-                                    item,
-                                    err: err.to_string(),
-                                })?
-                            }
-                            Ok(())
+                    Ok(mut writer) => {
+                        let ending = if crlf.unwrap_or(false) { "\r\n" } else { "\n" };
+                        for item in pipe {
+                            write!(writer, "{item}{ending}").map_err(|err| RpErr::WriteToFileErr {
+                                file: file.clone(),
+                                item: item.to_string(),
+                                err: err.to_string(),
+                            })?
                         }
-                        _ => {
-                            for x in pipe {
-                                let item = String::from(x);
-                                write!(writer, "{}\n", item).map_err(|err| RpErr::WriteToOutputFileErr {
-                                    file: file.clone(),
-                                    item,
-                                    err: err.to_string(),
-                                })?
-                            }
-                            Ok(())
-                        }
+                        Ok(())
                     },
-                    Err(err) => Err(RpErr::OpenOutputFileErr { file, err: err.to_string() }),
+                    Err(err) => Err(RpErr::OpenFileErr { file, err: err.to_string() }),
                 }
             }
             Output::Clip { crlf } => {

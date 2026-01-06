@@ -1,6 +1,6 @@
 use crate::err::RpErr;
 use crate::input::Input;
-use crate::parse::args::{consume_if_some, parse_arg_or_arg1};
+use crate::parse::args::{consume_if_some, parse_arg1};
 use std::iter::Peekable;
 
 pub(in crate::parse::args) fn parse_input(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
@@ -28,7 +28,7 @@ fn parse_std_in(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Inp
 
 fn parse_file(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
     args.next(); // 消耗`file`
-    Ok(Input::new_file(parse_arg_or_arg1(args, ":file", "file_name")?))
+    Ok(Input::new_file(parse_arg1(args, ":file", "file_name")?))
 }
 
 fn parse_clip(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
@@ -38,7 +38,7 @@ fn parse_clip(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input
 
 fn parse_of(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
     args.next(); // 消耗`of`
-    Ok(Input::new_of(parse_arg_or_arg1(args, ":of", "value")?))
+    Ok(Input::new_of(parse_arg1(args, ":of", "value")?))
 }
 
 fn parse_gen(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
@@ -92,27 +92,19 @@ mod tests {
         assert_eq!(Ok(Input::new_file(vec!["name".to_string()])), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args(":file [ name1 name2 \\] ] 123");
+        let mut args = build_args(":file name1 name2 \\] :123");
         assert_eq!(
-            Ok(Input::new_file(vec!["name1".to_string(), "name2".to_string(), "]".to_string()])),
+            Ok(Input::new_file(vec!["name1".to_string(), "name2".to_string(), "\\]".to_string()])),
             parse_input(&mut args)
         );
-        assert_eq!(Some("123".to_string()), args.next());
+        assert_eq!(Some(":123".to_string()), args.next());
 
         let mut args = build_args(":file");
         assert_eq!(Err(RpErr::MissingArg { cmd: ":file", arg: "file_name" }), parse_input(&mut args));
         assert!(args.next().is_none());
 
         let mut args = build_args(":file [ ]");
-        assert_eq!(Err(RpErr::ArgNotEnough { cmd: ":file", arg: "file_name" }), parse_input(&mut args));
-        assert!(args.next().is_none());
-
-        let mut args = build_args(":file [");
-        assert_eq!(Err(RpErr::UnclosingMultiArg { cmd: ":file", arg: "file_name" }), parse_input(&mut args));
-        assert!(args.next().is_none());
-
-        let mut args = build_args(":file ]");
-        assert_eq!(Err(RpErr::UnexpectedClosingBracket { cmd: ":file", arg: "file_name" }), parse_input(&mut args));
+        assert_eq!(Ok(Input::new_file(vec!["[".to_string(), "]".to_string()])), parse_input(&mut args));
         assert!(args.next().is_none());
     }
 
@@ -129,27 +121,19 @@ mod tests {
         assert_eq!(Ok(Input::new_of(vec!["text".to_string()])), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args(":of [ text1 text2 \\] ] 123");
+        let mut args = build_args(":of text1 text2 \\] :123");
         assert_eq!(
-            Ok(Input::new_of(vec!["text1".to_string(), "text2".to_string(), "]".to_string()])),
+            Ok(Input::new_of(vec!["text1".to_string(), "text2".to_string(), "\\]".to_string()])),
             parse_input(&mut args)
         );
-        assert_eq!(Some("123".to_string()), args.next());
+        assert_eq!(Some(":123".to_string()), args.next());
 
         let mut args = build_args(":of");
         assert_eq!(Err(RpErr::MissingArg { cmd: ":of", arg: "value" }), parse_input(&mut args));
         assert!(args.next().is_none());
 
         let mut args = build_args(":of [ ]");
-        assert_eq!(Err(RpErr::ArgNotEnough { cmd: ":of", arg: "value" }), parse_input(&mut args));
-        assert!(args.next().is_none());
-
-        let mut args = build_args(":of [");
-        assert_eq!(Err(RpErr::UnclosingMultiArg { cmd: ":of", arg: "value" }), parse_input(&mut args));
-        assert!(args.next().is_none());
-
-        let mut args = build_args(":of ]");
-        assert_eq!(Err(RpErr::UnexpectedClosingBracket { cmd: ":of", arg: "value" }), parse_input(&mut args));
+        assert_eq!(Ok(Input::new_of(vec!["[".to_string(), "]".to_string()])), parse_input(&mut args));
         assert!(args.next().is_none());
     }
 
