@@ -1,8 +1,11 @@
 use std::process::{ExitCode, Termination};
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, Eq, PartialEq)]
 pub(crate) enum RpErr {
+    #[error("[Config Token] Invalid args: {0}")]
+    ParseConfigTokenErr(String),
+
     #[error("[Input Token] Invalid args: {0}")]
     ParseInputTokenErr(String),
 
@@ -14,9 +17,6 @@ pub(crate) enum RpErr {
 
     #[error("[Arg Parse Err] Unable to parse `{arg_value}` in argument `{arg}` of cmd `{cmd}`, error: {error}")]
     ArgParseErr { cmd: &'static str, arg: &'static str, arg_value: String, error: String },
-
-    #[error("[Bad Arg] Bad value `{arg_value}` in argument `{arg}` of cmd `{cmd}`")]
-    BadArg { cmd: &'static str, arg: &'static str, arg_value: String },
 
     #[error("[Bad Arg] Unexpected remaining value `{remaining}` in argument `{arg}` of cmd `{cmd}`")]
     UnexpectedRemaining { cmd: &'static str, arg: &'static str, remaining: String },
@@ -70,24 +70,25 @@ impl RpErr {
     }
 
     fn exit_code(&self) -> u8 {
+        let mut code = 0u8..;
         match self {
-            RpErr::ParseInputTokenErr(_) => 1,
-            RpErr::ParseOpTokenErr(_) => 2,
-            RpErr::ParseOutputTokenErr(_) => 3,
-            RpErr::ArgParseErr { .. } => 4,
-            RpErr::BadArg { .. } => 5,
-            RpErr::UnexpectedRemaining { .. } => 6,
-            RpErr::MissingArg { .. } => 7,
-            RpErr::ArgNotEnough { .. } => 8,
-            RpErr::UnclosingMultiArg { .. } => 9,
-            RpErr::UnexpectedClosingBracket { .. } => 10,
-            RpErr::UnknownArgs { .. } => 11,
-            RpErr::ReadClipboardTextErr(_) => 12,
-            RpErr::OpenInputFileErr { .. } => 13,
-            RpErr::ReadFromInputFileErr { .. } => 14,
-            RpErr::WriteToClipboardErr(_) => 15,
-            RpErr::OpenOutputFileErr { .. } => 16,
-            RpErr::WriteToOutputFileErr { .. } => 17,
+            RpErr::ParseConfigTokenErr(_) => code.next().unwrap(),
+            RpErr::ParseInputTokenErr(_) => code.next().unwrap(),
+            RpErr::ParseOpTokenErr(_) => code.next().unwrap(),
+            RpErr::ParseOutputTokenErr(_) => code.next().unwrap(),
+            RpErr::ArgParseErr { .. } => code.next().unwrap(),
+            RpErr::UnexpectedRemaining { .. } => code.next().unwrap(),
+            RpErr::MissingArg { .. } => code.next().unwrap(),
+            RpErr::ArgNotEnough { .. } => code.next().unwrap(),
+            RpErr::UnclosingMultiArg { .. } => code.next().unwrap(),
+            RpErr::UnexpectedClosingBracket { .. } => code.next().unwrap(),
+            RpErr::UnknownArgs { .. } => code.next().unwrap(),
+            RpErr::ReadClipboardTextErr(_) => code.next().unwrap(),
+            RpErr::OpenInputFileErr { .. } => code.next().unwrap(),
+            RpErr::ReadFromInputFileErr { .. } => code.next().unwrap(),
+            RpErr::WriteToClipboardErr(_) => code.next().unwrap(),
+            RpErr::OpenOutputFileErr { .. } => code.next().unwrap(),
+            RpErr::WriteToOutputFileErr { .. } => code.next().unwrap(),
         }
     }
 }

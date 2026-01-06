@@ -8,43 +8,43 @@ use std::collections::HashSet;
 pub(crate) enum Op {
     /// 转为ASCII大写：
     /// ```
-    /// upper
+    /// :upper
     /// ```
     Upper, // OPT 2026-12-29 01:23 使用Unicode的大小写。
     /// 转为ASCII小写：
     /// ```
-    /// lower
+    /// :lower
     /// ```
     Lower, // OPT 2026-12-29 01:23 使用Unicode的大小写。
     /// 切换ASCII大小写：
     /// ```
-    /// case
+    /// :case
     /// ```
     Case,
     /// 替换字串：
     /// ```
-    /// replace <from> <to>[ <count>][ nocase]
+    /// :replace <from> <to>[ <count>][ nocase]
     ///
-    /// replace abc xyz
-    /// replace abc xyz 10
-    /// replace abc xyz nocase
-    /// replace abc xyz 10 nocase
+    /// :replace abc xyz
+    /// :replace abc xyz 10
+    /// :replace abc xyz nocase
+    /// :replace abc xyz 10 nocase
     /// ```
     Replace { from: String, to: String, count: Option<usize>, nocase: bool },
     /// 去重：
     /// ```
-    /// uniq[ nocase]
+    /// :uniq[ nocase]
     ///
-    /// uniq
-    /// uniq nocase
+    /// :uniq
+    /// :uniq nocase
     /// ```
     Uniq { nocase: bool },
     /// 调试：
     /// ```
-    /// peek[ <file_name>]
+    /// :peek[ <file_name>]
     ///
-    /// peek
-    /// peek file1.txt
+    /// :peek
+    /// :peek file1.txt
     /// ```
     Peek { file: Option<String> },
 }

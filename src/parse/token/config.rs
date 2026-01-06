@@ -5,15 +5,12 @@ use nom::bytes::complete::tag;
 use nom::character::complete::space1;
 use nom::combinator::map;
 use nom::error::context;
+use nom::multi::many0;
 use nom::sequence::terminated;
 use nom::{IResult, Parser};
 
-pub fn parse_configs(input: &str) -> (&str, Vec<Config>) {
-    let mut configs = Vec::new();
-    while let Ok((input, config)) = parse_config(input) {
-        configs.push(config);
-    }
-    (input, configs)
+pub(crate) fn parse_configs(input: &str) -> IResult<&str, Vec<Config>, ParserError<'_>> {
+    many0(parse_config).parse(input)
 }
 
 fn parse_config(input: &str) -> IResult<&str, Config, ParserError<'_>> {
@@ -46,5 +43,12 @@ mod tests {
         assert_eq!(parse_config("--nocase "), Ok(("", Config::Nocase)));
         assert!(parse_config("-h").is_err());
         assert!(parse_config("abc ").is_err());
+    }
+    #[test]
+    fn test_parse_configs() {
+        assert_eq!(
+            parse_configs("-h -V -v -d "),
+            Ok(("", vec![Config::Help, Config::Version, Config::Verbose, Config::DryRun]))
+        );
     }
 }

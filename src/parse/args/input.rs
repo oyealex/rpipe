@@ -8,12 +8,12 @@ pub(in crate::parse::args) fn parse_input(args: &mut Peekable<impl Iterator<Item
         Some(input) => {
             let lower_input = input.to_ascii_lowercase();
             match lower_input.as_str() {
-                "in" => parse_std_in(args),
-                "file" => parse_file(args),
-                "clip" => parse_clip(args),
-                "of" => parse_of(args),
-                "gen" => parse_gen(args),
-                "repeat" => parse_repeat(args),
+                ":in" => parse_std_in(args),
+                ":file" => parse_file(args),
+                ":clip" => parse_clip(args),
+                ":of" => parse_of(args),
+                ":gen" => parse_gen(args),
+                ":repeat" => parse_repeat(args),
                 _ => Ok(Input::new_std_in()),
             }
         }
@@ -28,7 +28,7 @@ fn parse_std_in(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Inp
 
 fn parse_file(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
     args.next(); // 消耗`file`
-    Ok(Input::new_file(parse_arg_or_arg1(args, "file", "file_name")?))
+    Ok(Input::new_file(parse_arg_or_arg1(args, ":file", "file_name")?))
 }
 
 fn parse_clip(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
@@ -38,29 +38,29 @@ fn parse_clip(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input
 
 fn parse_of(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
     args.next(); // 消耗`of`
-    Ok(Input::new_of(parse_arg_or_arg1(args, "of", "value")?))
+    Ok(Input::new_of(parse_arg_or_arg1(args, ":of", "value")?))
 }
 
 fn parse_gen(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
     args.next(); // 消耗`gen`
-    let range = args.next().ok_or_else(|| RpErr::MissingArg { cmd: "gen", arg: "range" })?;
+    let range = args.next().ok_or_else(|| RpErr::MissingArg { cmd: ":gen", arg: "range" })?;
     match crate::parse::token::input::parse_range_in_gen(&range) {
         Ok((remaining, input)) => {
             if !remaining.is_empty() {
-                Err(RpErr::UnexpectedRemaining { cmd: "gen", arg: "range", remaining: remaining.to_string() })
+                Err(RpErr::UnexpectedRemaining { cmd: ":gen", arg: "range", remaining: remaining.to_string() })
             } else {
                 Ok(input)
             }
         }
         Err(e) => {
-            Err(RpErr::ArgParseErr { cmd: "gen", arg: "range", arg_value: range.to_string(), error: e.to_string() })
+            Err(RpErr::ArgParseErr { cmd: ":gen", arg: "range", arg_value: range.to_string(), error: e.to_string() })
         }
     }
 }
 
 fn parse_repeat(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
     args.next(); // 消耗`repeat`
-    let value = args.next().ok_or(RpErr::MissingArg { cmd: "repeat", arg: "value" })?;
+    let value = args.next().ok_or(RpErr::MissingArg { cmd: ":repeat", arg: "value" })?;
     let count = consume_if_some(args, |s| s.parse::<usize>().ok());
     Ok(Input::new_repeat(value, count))
 }
@@ -73,11 +73,11 @@ mod tests {
 
     #[test]
     fn test_parse_std_in() {
-        let mut args = build_args("in");
+        let mut args = build_args(":in");
         assert_eq!(Ok(Input::new_std_in()), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("in 123");
+        let mut args = build_args(":in 123");
         assert_eq!(Ok(Input::new_std_in()), parse_input(&mut args));
         assert_eq!(Some("123".to_string()), args.next());
 
@@ -88,113 +88,113 @@ mod tests {
 
     #[test]
     fn test_parse_file() {
-        let mut args = build_args("file name");
+        let mut args = build_args(":file name");
         assert_eq!(Ok(Input::new_file(vec!["name".to_string()])), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("file [ name1 name2 \\] ] 123");
+        let mut args = build_args(":file [ name1 name2 \\] ] 123");
         assert_eq!(
             Ok(Input::new_file(vec!["name1".to_string(), "name2".to_string(), "]".to_string()])),
             parse_input(&mut args)
         );
         assert_eq!(Some("123".to_string()), args.next());
 
-        let mut args = build_args("file");
-        assert_eq!(Err(RpErr::MissingArg { cmd: "file", arg: "file_name" }), parse_input(&mut args));
+        let mut args = build_args(":file");
+        assert_eq!(Err(RpErr::MissingArg { cmd: ":file", arg: "file_name" }), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("file [ ]");
-        assert_eq!(Err(RpErr::ArgNotEnough { cmd: "file", arg: "file_name" }), parse_input(&mut args));
+        let mut args = build_args(":file [ ]");
+        assert_eq!(Err(RpErr::ArgNotEnough { cmd: ":file", arg: "file_name" }), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("file [");
-        assert_eq!(Err(RpErr::UnclosingMultiArg { cmd: "file", arg: "file_name" }), parse_input(&mut args));
+        let mut args = build_args(":file [");
+        assert_eq!(Err(RpErr::UnclosingMultiArg { cmd: ":file", arg: "file_name" }), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("file ]");
-        assert_eq!(Err(RpErr::UnexpectedClosingBracket { cmd: "file", arg: "file_name" }), parse_input(&mut args));
+        let mut args = build_args(":file ]");
+        assert_eq!(Err(RpErr::UnexpectedClosingBracket { cmd: ":file", arg: "file_name" }), parse_input(&mut args));
         assert!(args.next().is_none());
     }
 
     #[test]
     fn test_parse_clip() {
-        let mut args = build_args("clip");
+        let mut args = build_args(":clip");
         assert_eq!(Ok(Input::new_clip()), parse_input(&mut args));
         assert!(args.next().is_none());
     }
 
     #[test]
     fn test_parse_of() {
-        let mut args = build_args("of text");
+        let mut args = build_args(":of text");
         assert_eq!(Ok(Input::new_of(vec!["text".to_string()])), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("of [ text1 text2 \\] ] 123");
+        let mut args = build_args(":of [ text1 text2 \\] ] 123");
         assert_eq!(
             Ok(Input::new_of(vec!["text1".to_string(), "text2".to_string(), "]".to_string()])),
             parse_input(&mut args)
         );
         assert_eq!(Some("123".to_string()), args.next());
 
-        let mut args = build_args("of");
-        assert_eq!(Err(RpErr::MissingArg { cmd: "of", arg: "value" }), parse_input(&mut args));
+        let mut args = build_args(":of");
+        assert_eq!(Err(RpErr::MissingArg { cmd: ":of", arg: "value" }), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("of [ ]");
-        assert_eq!(Err(RpErr::ArgNotEnough { cmd: "of", arg: "value" }), parse_input(&mut args));
+        let mut args = build_args(":of [ ]");
+        assert_eq!(Err(RpErr::ArgNotEnough { cmd: ":of", arg: "value" }), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("of [");
-        assert_eq!(Err(RpErr::UnclosingMultiArg { cmd: "of", arg: "value" }), parse_input(&mut args));
+        let mut args = build_args(":of [");
+        assert_eq!(Err(RpErr::UnclosingMultiArg { cmd: ":of", arg: "value" }), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("of ]");
-        assert_eq!(Err(RpErr::UnexpectedClosingBracket { cmd: "of", arg: "value" }), parse_input(&mut args));
+        let mut args = build_args(":of ]");
+        assert_eq!(Err(RpErr::UnexpectedClosingBracket { cmd: ":of", arg: "value" }), parse_input(&mut args));
         assert!(args.next().is_none());
     }
 
     #[test]
     fn test_parse_gen() {
-        let mut args = build_args("gen 0");
+        let mut args = build_args(":gen 0");
         assert_eq!(Ok(Input::new_gen(0, Integer::MAX, false, 1)), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("gen 0,10");
+        let mut args = build_args(":gen 0,10");
         assert_eq!(Ok(Input::new_gen(0, 10, false, 1)), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("gen 0,=10");
+        let mut args = build_args(":gen 0,=10");
         assert_eq!(Ok(Input::new_gen(0, 10, true, 1)), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("gen 0,10,2");
+        let mut args = build_args(":gen 0,10,2");
         assert_eq!(Ok(Input::new_gen(0, 10, false, 2)), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("gen 0,=10,2");
+        let mut args = build_args(":gen 0,=10,2");
         assert_eq!(Ok(Input::new_gen(0, 10, true, 2)), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("gen 0,,2");
+        let mut args = build_args(":gen 0,,2");
         assert_eq!(Ok(Input::new_gen(0, Integer::MAX, false, 2)), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("gen");
-        assert_eq!(Err(RpErr::MissingArg { cmd: "gen", arg: "range" }), parse_input(&mut args));
+        let mut args = build_args(":gen");
+        assert_eq!(Err(RpErr::MissingArg { cmd: ":gen", arg: "range" }), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("gen 0,10,2abc");
+        let mut args = build_args(":gen 0,10,2abc");
         assert_eq!(
-            Err(RpErr::UnexpectedRemaining { cmd: "gen", arg: "range", remaining: "abc".to_string() }),
+            Err(RpErr::UnexpectedRemaining { cmd: ":gen", arg: "range", remaining: "abc".to_string() }),
             parse_input(&mut args)
         );
         assert!(args.next().is_none());
 
-        let mut args = build_args("gen abc");
+        let mut args = build_args(":gen abc");
         assert!(if let Err(err) = parse_input(&mut args) {
             match err {
                 RpErr::ArgParseErr { cmd, arg, arg_value, .. } => {
-                    "gen".eq(cmd) && "range".eq(arg) && "abc".eq(&arg_value)
+                    ":gen".eq(cmd) && "range".eq(arg) && "abc".eq(&arg_value)
                 }
                 _ => false,
             }
@@ -206,16 +206,16 @@ mod tests {
 
     #[test]
     fn test_parse_repeat() {
-        let mut args = build_args("repeat 123");
+        let mut args = build_args(":repeat 123");
         assert_eq!(Ok(Input::new_repeat("123".to_string(), None)), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("repeat 123 10");
+        let mut args = build_args(":repeat 123 10");
         assert_eq!(Ok(Input::new_repeat("123".to_string(), Some(10))), parse_input(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("repeat");
-        assert_eq!(Err(RpErr::MissingArg { cmd: "repeat", arg: "value" }), parse_input(&mut args));
+        let mut args = build_args(":repeat");
+        assert_eq!(Err(RpErr::MissingArg { cmd: ":repeat", arg: "value" }), parse_input(&mut args));
         assert!(args.next().is_none());
     }
 }

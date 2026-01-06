@@ -12,7 +12,7 @@ use nom::Parser;
 
 pub(in crate::parse) type OutputResult<'a> = IResult<&'a str, Output, ParserError<'a>>;
 
-pub(in crate::parse) fn parse_out(input: &'static str) -> OutputResult<'static> {
+pub(in crate::parse) fn parse_out(input: &str) -> OutputResult<'_> {
     context(
         "Output",
         alt((
@@ -24,13 +24,13 @@ pub(in crate::parse) fn parse_out(input: &'static str) -> OutputResult<'static> 
     .parse(input)
 }
 
-fn parse_to_file(input: &'static str) -> OutputResult<'static> {
+fn parse_to_file(input: &str) -> OutputResult<'_> {
     context(
         "Output::File",
         map(
             terminated(
                 preceded(
-                    (tag_no_case("to"), space1, tag_no_case("file"), space1), // 丢弃：`to file `
+                    (tag_no_case(":to"), space1, tag_no_case("file"), space1), // 丢弃：`to file `
                     (
                         arg,                                                                  // 文件
                         opt((space1, tag_no_case("append"))),                                 // 是否追加
@@ -51,13 +51,13 @@ fn parse_to_clip(input: &str) -> OutputResult<'_> {
     context(
         "Output::Clip",
         map(
-            (preceded(
-                (tag_no_case("to"), space1, tag_no_case("clip")), // 固定`to clip`
+            preceded(
+                (tag_no_case(":to"), space1, tag_no_case("clip")), // 固定`to clip`
                 terminated(
                     opt(preceded(space1, alt((tag_no_case("lf"), tag_no_case("crlf"))))), // 换行符
                     space1,                                                               // 结尾空格
                 ),
-            )), // 丢弃：`to clip `
+            ), // 丢弃：`to clip `
             |ending_opt: Option<&str>| Output::new_clip(ending_opt.map(|s| s.eq_ignore_ascii_case("crlf"))),
         ),
     )
@@ -70,34 +70,34 @@ mod tests {
 
     #[test]
     fn test_parse_to_file() {
-        assert_eq!(parse_to_file("to file out.txt "), Ok(("", Output::new_file("out.txt".to_string(), false, None))));
+        assert_eq!(parse_to_file(":to file out.txt "), Ok(("", Output::new_file("out.txt".to_string(), false, None))));
         assert_eq!(
-            parse_to_file("to file out.txt append "),
+            parse_to_file(":to file out.txt append "),
             Ok(("", Output::new_file("out.txt".to_string(), true, None)))
         );
         assert_eq!(
-            parse_to_file("to file out.txt append crlf "),
+            parse_to_file(":to file out.txt append crlf "),
             Ok(("", Output::new_file("out.txt".to_string(), true, Some(true))))
         );
         assert_eq!(
-            parse_to_file("to file out.txt crlf "),
+            parse_to_file(":to file out.txt crlf "),
             Ok(("", Output::new_file("out.txt".to_string(), false, Some(true))))
         );
         assert_eq!(
-            parse_to_file(r#"to file "out .txt" "#),
+            parse_to_file(r#":to file "out .txt" "#),
             Ok(("", Output::new_file("out .txt".to_string(), false, None)))
         );
-        assert!(parse_to_file("to").is_err());
-        assert!(parse_to_file("to file ").is_err());
-        assert!(parse_to_file("to file [").is_err());
+        assert!(parse_to_file(":to").is_err());
+        assert!(parse_to_file(":to file ").is_err());
+        assert!(parse_to_file(":to file [").is_err());
     }
 
     #[test]
     fn test_parse_to_clip() {
-        assert_eq!(parse_to_clip("to clip "), Ok(("", Output::new_clip(None))));
-        assert_eq!(parse_to_clip("to  clip  "), Ok(("", Output::new_clip(None))));
-        assert_eq!(parse_to_clip("to clip lf "), Ok(("", Output::new_clip(Some(false)))));
-        assert_eq!(parse_to_clip("to clip crlf "), Ok(("", Output::new_clip(Some(true)))));
-        assert!(parse_to_clip("to ").is_err());
+        assert_eq!(parse_to_clip(":to clip "), Ok(("", Output::new_clip(None))));
+        assert_eq!(parse_to_clip(":to  clip  "), Ok(("", Output::new_clip(None))));
+        assert_eq!(parse_to_clip(":to clip lf "), Ok(("", Output::new_clip(Some(false)))));
+        assert_eq!(parse_to_clip(":to clip crlf "), Ok(("", Output::new_clip(Some(true)))));
+        assert!(parse_to_clip(":to ").is_err());
     }
 }

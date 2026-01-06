@@ -1,15 +1,17 @@
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum Config {
-    /// `-h`
+    /// 帮助 `-h`
     Help,
-    /// `-V`
+    /// 版本 `-V`
     Version,
-    /// `-v`
+    /// 打印流水线信息 `-v`
     Verbose,
-    /// `-d`
+    /// 仅解析，不执行 `-d`
     DryRun,
-    /// `--nocase`
+    /// 全局忽略大小写 `--nocase`
     Nocase,
+    /// 以Token模式解析下一个参数 `--eval`
+    Eval,
 }
 
 #[inline]

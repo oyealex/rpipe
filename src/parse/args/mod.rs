@@ -68,6 +68,7 @@ where
     }
 }
 
+#[allow(unused)]
 fn consume_if_then_map<F, M, U>(args: &mut Peekable<impl Iterator<Item = String>>, f: F, m: M) -> Option<U>
 where
     F: FnOnce(&String) -> bool,

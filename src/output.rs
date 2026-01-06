@@ -8,28 +8,28 @@ use std::io::Write;
 pub(crate) enum Output {
     /// 输出到标准输出：
     /// ```
-    /// to out
+    /// :to out
     /// ```
     StdOut,
     /// 输出到文件：
     /// ```
-    /// to file <file_name>[ append][ lf|crlf]
+    /// :to file <file_name>[ append][ lf|crlf]
     ///
-    /// to file file_name
-    /// to file file_name append
-    /// to file file_name crlf
-    /// to file file_name lf
-    /// to file file_name append crlf
-    /// to file file_name append lf
+    /// :to file file_name
+    /// :to file file_name append
+    /// :to file file_name crlf
+    /// :to file file_name lf
+    /// :to file file_name append crlf
+    /// :to file file_name append lf
     /// ```
     File { file: String, append: bool, crlf: Option<bool> },
     /// 输出到剪切板：
     /// ```
-    /// to clip[ lf|crlf]
+    /// :to clip[ lf|crlf]
     ///
-    /// to clip
-    /// to clip lf
-    /// to clip crlf
+    /// :to clip
+    /// :to clip lf
+    /// :to clip crlf
     /// ```
     Clip { crlf: Option<bool> },
 }

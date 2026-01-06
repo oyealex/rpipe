@@ -16,12 +16,12 @@ fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<
         Some(op) => {
             let lower_op = op.to_ascii_lowercase();
             match lower_op.as_str() {
-                "upper" => parse_upper(args),
-                "lower" => parse_lower(args),
-                "case" => parse_case(args),
-                "replace" => parse_replace(args),
-                "uniq" => parse_uniq(args),
-                "peek" => parse_peek(args),
+                ":upper" => parse_upper(args),
+                ":lower" => parse_lower(args),
+                ":case" => parse_case(args),
+                ":replace" => parse_replace(args),
+                ":uniq" => parse_uniq(args),
+                ":peek" => parse_peek(args),
                 _ => Ok(None),
             }
         }
@@ -54,10 +54,10 @@ fn parse_replace(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op
             let nocase = consume_if(args, |s| s.eq_ignore_ascii_case("nocase")).is_some();
             Ok(Some(Op::new_replace(from, to, count_opt, nocase)))
         } else {
-            Err(RpErr::MissingArg { cmd: "replace", arg: "to" })
+            Err(RpErr::MissingArg { cmd: ":replace", arg: "to" })
         }
     } else {
-        Err(RpErr::MissingArg { cmd: "replace", arg: "from" })
+        Err(RpErr::MissingArg { cmd: ":replace", arg: "from" })
     }
 }
 
@@ -72,11 +72,7 @@ fn parse_uniq(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Optio
 
 fn parse_peek(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {
     args.next();
-    let nocase = args.peek().map(|nocase| nocase.eq_ignore_ascii_case("nocase")).unwrap_or(false);
-    if nocase {
-        args.next();
-    }
-    Ok(Some(Op::new_uniq(nocase)))
+    Ok(Some(Op::new_peek(None)))
 }
 
 #[cfg(test)]
@@ -93,76 +89,76 @@ mod tests {
 
     #[test]
     fn test_parse_upper() {
-        let mut args = build_args("upper");
+        let mut args = build_args(":upper");
         assert_eq!(Ok(Some(Op::new_upper())), parse_op(&mut args));
         assert!(args.next().is_none());
     }
 
     #[test]
     fn test_parse_lower() {
-        let mut args = build_args("lower");
+        let mut args = build_args(":lower");
         assert_eq!(Ok(Some(Op::new_lower())), parse_op(&mut args));
         assert!(args.next().is_none());
     }
 
     #[test]
     fn test_parse_case() {
-        let mut args = build_args("case");
+        let mut args = build_args(":case");
         assert_eq!(Ok(Some(Op::new_case())), parse_op(&mut args));
         assert!(args.next().is_none());
     }
 
     #[test]
     fn test_parse_replace() {
-        let mut args = build_args("replace 123 abc");
+        let mut args = build_args(":replace 123 abc");
         assert_eq!(Ok(Some(Op::new_replace("123".to_string(), "abc".to_string(), None, false))), parse_op(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("replace 123 abc 10");
+        let mut args = build_args(":replace 123 abc 10");
         assert_eq!(
             Ok(Some(Op::new_replace("123".to_string(), "abc".to_string(), Some(10), false))),
             parse_op(&mut args)
         );
         assert!(args.next().is_none());
 
-        let mut args = build_args("replace 123 abc nocase");
+        let mut args = build_args(":replace 123 abc nocase");
         assert_eq!(Ok(Some(Op::new_replace("123".to_string(), "abc".to_string(), None, true))), parse_op(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("replace 123 abc 10 nocase");
+        let mut args = build_args(":replace 123 abc 10 nocase");
         assert_eq!(
             Ok(Some(Op::new_replace("123".to_string(), "abc".to_string(), Some(10), true))),
             parse_op(&mut args)
         );
         assert!(args.next().is_none());
 
-        let mut args = build_args("replace 123");
-        assert_eq!(Err(RpErr::MissingArg { cmd: "replace", arg: "to" }), parse_op(&mut args));
+        let mut args = build_args(":replace 123");
+        assert_eq!(Err(RpErr::MissingArg { cmd: ":replace", arg: "to" }), parse_op(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("replace");
-        assert_eq!(Err(RpErr::MissingArg { cmd: "replace", arg: "from" }), parse_op(&mut args));
+        let mut args = build_args(":replace");
+        assert_eq!(Err(RpErr::MissingArg { cmd: ":replace", arg: "from" }), parse_op(&mut args));
         assert!(args.next().is_none());
     }
 
     #[test]
     fn test_parse_uniq() {
-        let mut args = build_args("uniq");
+        let mut args = build_args(":uniq");
         assert_eq!(Ok(Some(Op::new_uniq(false))), parse_op(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("uniq nocase");
+        let mut args = build_args(":uniq nocase");
         assert_eq!(Ok(Some(Op::new_uniq(true))), parse_op(&mut args));
         assert!(args.next().is_none());
     }
 
     #[test]
     fn test_parse_peek() {
-        let mut args = build_args("uniq");
+        let mut args = build_args(":uniq");
         assert_eq!(Ok(Some(Op::new_uniq(false))), parse_op(&mut args));
         assert!(args.next().is_none());
 
-        let mut args = build_args("uniq nocase");
+        let mut args = build_args(":uniq nocase");
         assert_eq!(Ok(Some(Op::new_uniq(true))), parse_op(&mut args));
         assert!(args.next().is_none());
     }

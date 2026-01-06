@@ -4,7 +4,6 @@ use std::fs::File;
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::iter::repeat;
-use std::ops::Deref;
 use std::rc::Rc;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -26,44 +25,44 @@ impl From<Item> for String {
 pub(crate) enum Input {
     /// 标准输入：
     /// ```
-    /// in
+    /// :in
     /// ```
     StdIn,
     /// 外部文件：
     /// ```
-    /// file <file_name>
-    /// file [ <file1_name> ]
-    /// file [ <file1_name> <file2_name> <file3_name> ]
+    /// :file <file_name>
+    /// :file [ <file1_name> ]
+    /// :file [ <file1_name> <file2_name> <file3_name> ]
     /// ```
     File { files: Vec<String> },
     /// 剪切板：
     /// ```
-    /// clip
+    /// :clip
     /// ```
     Clip,
     /// 直接字面值：
     /// ```
-    /// of <value>
-    /// of [ <value1> ]
-    /// of [ <value1> <value2> <value3> ]
+    /// :of <value>
+    /// :of [ <value1> ]
+    /// :of [ <value1> <value2> <value3> ]
     /// ```
     Of { values: Vec<String> },
     /// 整数生成器：
     /// ```
-    /// gen <start>[,[[=]<end>][,<step>]]
+    /// :gen <start>[,[[=]<end>][,<step>]]
     ///
-    /// gen 0
-    /// gen 0,10
-    /// gen 0,=10
-    /// gen 0,10,2
-    /// gen 0,=10,2
-    /// gen 0,,2
+    /// :gen 0
+    /// :gen 0,10
+    /// :gen 0,=10
+    /// :gen 0,10,2
+    /// :gen 0,=10,2
+    /// :gen 0,,2
     /// ```
     Gen { start: Integer, end: Integer, included: bool, step: Integer },
     /// 重复：
     /// ```
-    /// repeat <value>
-    /// repeat <value> <count>
+    /// :repeat <value>
+    /// :repeat <value> <count>
     /// ```
     Repeat { value: String, count: Option<usize> },
 }

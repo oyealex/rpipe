@@ -6,7 +6,7 @@ use std::iter::Peekable;
 
 pub(in crate::parse::args) fn parse_output(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Output, RpErr> {
     if let Some(to_cmd) = args.peek()
-        && to_cmd.eq_ignore_ascii_case("to")
+        && to_cmd.eq_ignore_ascii_case(":to")
     {
         args.next(); // 消耗`to`
         match args.peek() {
@@ -31,7 +31,7 @@ fn parse_file(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Outpu
     if let Some((file, append, crlf)) = parse_general_file_info(args) {
         Ok(Output::new_file(file, append, crlf))
     } else {
-        Err(RpErr::MissingArg { cmd: "to file", arg: "file" })
+        Err(RpErr::MissingArg { cmd: ":to file", arg: "file" })
     }
 }
 
