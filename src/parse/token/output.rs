@@ -16,10 +16,22 @@ pub(in crate::parse) fn parse_out(input: &str) -> OutputResult<'_> {
     context(
         "Output",
         alt((
+            parse_to_std_out,
             parse_to_file,
             parse_to_clip,
             context("Output::Out", map(success(()), |_| Output::new_std_out())), // 最后默认使用`Output::Out`
         )),
+    )
+    .parse(input)
+}
+
+fn parse_to_std_out(input: &str) -> OutputResult<'_> {
+    context(
+        "Output::StdOut",
+        map(
+            (tag_no_case(":to"), space1, tag_no_case("out"), space1), // 丢弃：`:to out `
+            |_| Output::new_std_out(),
+        ),
     )
     .parse(input)
 }
