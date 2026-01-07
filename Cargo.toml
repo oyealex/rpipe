@@ -9,3 +9,4 @@ nom = "8.0.0"
 nom-language = "0.1.0"
 thiserror = "2.0.17"
 clipboard-win = "5.4.1"
+cmd-help = { path = "./cmd_help" }

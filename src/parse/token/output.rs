@@ -1,6 +1,6 @@
 use crate::output::Output;
-use crate::parse::token::ParserError;
 use crate::parse::token::general_file_info;
+use crate::parse::token::ParserError;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::space1;

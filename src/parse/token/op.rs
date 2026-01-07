@@ -1,4 +1,4 @@
-use crate::op::Op;
+use crate::op::{Op, PeekTo};
 use crate::parse::token::{arg, general_file_info, ParserError};
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
@@ -85,10 +85,12 @@ fn parse_peek(input: &str) -> OpResult<'_> {
                 opt(general_file_info(true)),   // 可选文件信息
             ),
             |file_info| match file_info {
-                Some((file, append_opt, ending_opt)) => {
-                    Op::new_peek_to_file(file, append_opt.is_some(), ending_opt.map(|s| s.eq_ignore_ascii_case("crlf")))
-                }
-                None => Op::new_peek_to_std_out(),
+                Some((file, append_opt, ending_opt)) => Op::new_peek(PeekTo::File {
+                    file,
+                    append: append_opt.is_some(),
+                    crlf: ending_opt.map(|s| s.eq_ignore_ascii_case("crlf")),
+                }),
+                None => Op::new_peek(PeekTo::StdOut),
             },
         ),
     )
@@ -158,24 +160,27 @@ mod tests {
 
     #[test]
     fn test_parse_peek() {
-        assert_eq!(parse_peek(":peek "), Ok(("", Op::new_peek_to_std_out())));
-        assert_eq!(parse_peek(":peek :abc"), Ok((":abc", Op::new_peek_to_std_out())));
-        assert_eq!(parse_peek(":peek out.txt"), Ok(("", Op::new_peek_to_file("out.txt".to_string(), false, None))));
+        assert_eq!(parse_peek(":peek "), Ok(("", Op::new_peek(PeekTo::StdOut))));
+        assert_eq!(parse_peek(":peek :abc"), Ok((":abc", Op::new_peek(PeekTo::StdOut))));
+        assert_eq!(
+            parse_peek(":peek out.txt"),
+            Ok(("", Op::new_peek(PeekTo::File { file: "out.txt".to_string(), append: false, crlf: None })))
+        );
         assert_eq!(
             parse_peek(":peek out.txt append"),
-            Ok(("", Op::new_peek_to_file("out.txt".to_string(), true, None)))
+            Ok(("", Op::new_peek(PeekTo::File { file: "out.txt".to_string(), append: true, crlf: None })))
         );
         assert_eq!(
             parse_peek(":peek out.txt append crlf"),
-            Ok(("", Op::new_peek_to_file("out.txt".to_string(), true, Some(true))))
+            Ok(("", Op::new_peek(PeekTo::File { file: "out.txt".to_string(), append: true, crlf: Some(true) })))
         );
         assert_eq!(
             parse_peek(":peek out.txt crlf"),
-            Ok(("", Op::new_peek_to_file("out.txt".to_string(), false, Some(true))))
+            Ok(("", Op::new_peek(PeekTo::File { file: "out.txt".to_string(), append: false, crlf: Some(true) })))
         );
         assert_eq!(
             parse_peek(r#":peek "out .txt" "#),
-            Ok((" ", Op::new_peek_to_file("out .txt".to_string(), false, None)))
+            Ok((" ", Op::new_peek(PeekTo::File { file: "out .txt".to_string(), append: false, crlf: None })))
         );
     }
 }

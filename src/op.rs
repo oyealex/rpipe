@@ -2,58 +2,72 @@ use crate::config::{is_nocase, Config};
 use crate::err::RpErr;
 use crate::input::{Item, Pipe};
 use crate::RpRes;
+use cmd_help::CmdHelp;
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
 
 #[derive(Debug, Eq, PartialEq)]
+pub(crate) enum PeekTo {
+    StdOut,
+    File { file: String, append: bool, crlf: Option<bool> },
+}
+
+#[derive(Debug, Eq, PartialEq, CmdHelp)]
 pub(crate) enum Op {
-    /// 转为ASCII大写：
-    /// ```
-    /// :upper
-    /// ```
-    Upper, // OPT 2026-12-29 01:23 使用Unicode的大小写。
-    /// 转为ASCII小写：
-    /// ```
-    /// :lower
-    /// ```
-    Lower, // OPT 2026-12-29 01:23 使用Unicode的大小写。
-    /// 切换ASCII大小写：
-    /// ```
-    /// :case
-    /// ```
+    /* **************************************** 访问 **************************************** */
+    /// :peek       打印每个值到标准输出或文件。
+    ///             :peek[ <file_name>]
+    ///                 <file_name> 文件路径，可选。
+    ///             例如：
+    ///                 :peek
+    ///                 :peek file.txt
+    Peek(PeekTo),
+    /* **************************************** 转换 **************************************** */
+    /// :upper      转为ASCII大写。
+    Upper,
+    /// :lower      转为ASCII小写。
+    Lower,
+    /// :case       切换ASCII大小写。
     Case,
-    /// 替换字串：
-    /// ```
-    /// :replace <from> <to>[ <count>][ nocase]
-    ///
-    /// :replace abc xyz
-    /// :replace abc xyz 10
-    /// :replace abc xyz nocase
-    /// :replace abc xyz 10 nocase
-    /// ```
+    /// :replace    替换字符串。
+    ///             数字类型元素当作字符串进行替换，替换后转为字符串。
+    ///             :replace <from> <to>[ <count>][ nocase]
+    ///                 <from>  待替换的字符串，必选。
+    ///                 <to>    待替换为的字符串，必选。
+    ///                 <count> 对每个元素需要替换的次数，不能为负数，可选，不指定则替换所有。
+    ///                 nocase  替换时忽略大小写，可选，不指定时不忽略大小写。
+    ///             例如：
+    ///                 :replace abc xyz
+    ///                 :replace abc xyz 10
+    ///                 :replace abc xyz nocase
+    ///                 :replace abc xyz 10 nocase
     Replace { from: String, to: String, count: Option<usize>, nocase: bool },
-    /// 去重：
-    /// ```
-    /// :uniq[ nocase]
-    ///
-    /// :uniq
-    /// :uniq nocase
-    /// ```
+    /* **************************************** 减少 **************************************** */
+    /// :uniq       去重。
+    ///             数字类型元素当作字符串，但是去重后仍为数字类型。
+    ///             :uniq[ nocase]
+    ///                 nocase  去重时忽略大小写，可选，不指定时不忽略大小写。
+    ///             例如：
+    ///                 :uniq
+    ///                 :uniq nocase
     Uniq { nocase: bool },
-    /// 打印值到标准输出：
-    /// ```
-    /// :peek
-    /// ```
-    PeekToStdOut,
-    /// 打印值到文件：
-    /// ```
-    /// :peek <file_name>
-    ///
-    /// :peek file1.txt
-    /// ```
-    PeekToFile { file: String, append: bool, crlf: Option<bool> },
+    // /// 丢弃：
+    // /// ```
+    // /// :drop
+    // /// ```
+    // Drop,
+    // /* **************************************** 增加 **************************************** */
+    // /* **************************************** 调整位置 **************************************** */
+    // /// 排序：
+    // /// ```
+    // /// :sort[ number|num]
+    // ///
+    // /// :sort number
+    // /// :sort
+    // /// ```
+    // Sort,
 }
 
 impl Op {
@@ -69,11 +83,8 @@ impl Op {
     pub(crate) fn new_replace(from: String, to: String, count: Option<usize>, nocase: bool) -> Op {
         Op::Replace { from, to, count, nocase }
     }
-    pub(crate) fn new_peek_to_std_out() -> Op {
-        Op::PeekToStdOut
-    }
-    pub(crate) fn new_peek_to_file(file: String, append: bool, crlf: Option<bool>) -> Op {
-        Op::PeekToFile { file, append, crlf }
+    pub(crate) fn new_peek(peek_to: PeekTo) -> Op {
+        Op::Peek(peek_to)
     }
     pub(crate) fn new_uniq(nocase: bool) -> Op {
         Op::Uniq { nocase }
@@ -168,32 +179,35 @@ impl Op {
                     seen.insert(key) // 返回 true 表示保留（首次出现）
                 }))
             }
-            Op::PeekToStdOut => Ok(pipe.op_inspect(|item| match item {
-                Item::String(string) => {
-                    println!("{}", string);
-                }
-                Item::Integer(integer) => {
-                    println!("{}", integer);
-                }
-            })),
-            Op::PeekToFile { file, append, crlf } => {
-                match OpenOptions::new().write(true).truncate(!append).append(append).create(true).open(&file) {
-                    Ok(mut writer) => {
-                        let ending = if crlf.unwrap_or(false) { "\r\n" } else { "\n" };
-                        Ok(pipe.op_inspect(move |item| {
-                            if let Err(err) = write!(writer, "{item}{ending}") {
-                                RpErr::WriteToFileErr {
-                                    file: file.clone(),
-                                    item: item.to_string(),
-                                    err: err.to_string(),
-                                }
-                                .termination()
-                            }
-                        }))
+            Op::Peek(peek) => match peek {
+                PeekTo::StdOut => Ok(pipe.op_inspect(|item| match item {
+                    Item::String(string) => {
+                        println!("{}", string);
                     }
-                    Err(err) => RpErr::OpenFileErr { file, err: err.to_string() }.termination(),
+                    Item::Integer(integer) => {
+                        println!("{}", integer);
+                    }
+                })),
+                PeekTo::File { file, append, crlf } => {
+                    match OpenOptions::new().write(true).truncate(!append).append(append).create(true).open(&file) {
+                        Ok(mut writer) => {
+                            let ending = if crlf.unwrap_or(false) { "\r\n" } else { "\n" };
+                            Ok(pipe.op_inspect(move |item| {
+                                if let Err(err) = write!(writer, "{item}{ending}") {
+                                    RpErr::WriteToFileErr {
+                                        file: file.clone(),
+                                        item: item.to_string(),
+                                        err: err.to_string(),
+                                    }
+                                    .termination()
+                                }
+                            }))
+                        }
+                        Err(err) => RpErr::OpenFileErr { file, err: err.to_string() }.termination(),
+                    }
                 }
-            }
+            },
+            _ => panic!("unimplemented"),
         }
     }
 }

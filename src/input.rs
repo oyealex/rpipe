@@ -1,5 +1,6 @@
 use crate::err::RpErr;
 use crate::{Integer, RpRes};
+use cmd_help::CmdHelp;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io;
@@ -40,49 +41,52 @@ impl Display for Item {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, CmdHelp)]
 pub(crate) enum Input {
-    /// 标准输入：
-    /// ```
-    /// :in
-    /// ```
+    /// :in         从标准输入读取文本类型输入。
+    ///             不指定元素输入时的默认输入。
     StdIn,
-    /// 外部文件：
-    /// ```
-    /// :file <file_name>
-    /// :file [ <file1_name> ]
-    /// :file [ <file1_name> <file2_name> <file3_name> ]
-    /// ```
+    /// :file       从文件读取文本类型输入。
+    ///             :file <file_name>[ <file_name>][...]
+    ///                 <file_name> 文件路径，至少指定一个。
+    ///             例如：
+    ///                 :file input.txt
+    ///                 :file input1.txt input2.txt input3.txt
     File { files: Vec<String> },
-    /// 剪切板：
-    /// ```
-    /// :clip
-    /// ```
+    /// :clip       从剪切板读取文本类型输入。
     Clip,
-    /// 直接字面值：
-    /// ```
-    /// :of <value>
-    /// :of [ <value1> ]
-    /// :of [ <value1> <value2> <value3> ]
-    /// ```
+    /// :of         使用直接字面值作为文本类型输入。
+    ///             :of <text>[ <text][...]
+    ///                 <text>  字面值，至少指定一个，如果以':'开头，需要使用'::'转义。
+    ///             例如：
+    ///                 :of line
+    ///                 :of line1 "line 2" 'line 3'
     Of { values: Vec<String> },
-    /// 整数生成器：
-    /// ```
-    /// :gen <start>[,[[=]<end>][,<step>]]
-    ///
-    /// :gen 0
-    /// :gen 0,10
-    /// :gen 0,=10
-    /// :gen 0,10,2
-    /// :gen 0,=10,2
-    /// :gen 0,,2
-    /// ```
+    /// :gen        生成指定范围内的整数作为整数类型输入。
+    ///             :gen <start>[,[[=]<end>][,<step>]]
+    ///                 <start> 起始值，包含，必须。
+    ///                 <end>   结束值，指定'='时包含，否则不包含，可选。
+    ///                         不指定时生成到整数最大值（取决于构建版本）。
+    ///                         如果起始值和结束值表示的范围为空，则无数据生成。
+    ///                 <step>  步长，不能为0，可选，不指定时取步长为1。
+    ///                         如果步长为正值，表示正序生成；
+    ///                         如果步长为负值，表示逆序生成。
+    ///             例如：
+    ///                 :gen 0          生成：0 1 2 3 4 5 ...
+    ///                 :gen 0,10       生成：0 1 2 3 4 5 6 7 8 9
+    ///                 :gen 0,=10      生成：0 1 2 3 4 5 6 7 8 9 10
+    ///                 :gen 0,10,2     生成：0 2 4 6 8
+    ///                 :gen 0,=10,2    生成：0 2 4 6 8 10
+    ///                 :gen 0,,2       生成：0 2 4 6 8 10 12 14 ...
+    ///                 :gen 10,0       无数据生成
+    ///                 :gen 0,10,-1    生成：9 8 7 6 5 4 3 2 1
+    ///                 :gen 0,=10,-1   生成：10 9 8 7 6 5 4 3 2 1
+    ///                 :gen 0,=10,-3   生成：10 7 4 1
     Gen { start: Integer, end: Integer, included: bool, step: Integer },
-    /// 重复：
-    /// ```
-    /// :repeat <value>
-    /// :repeat <value> <count>
-    /// ```
+    /// :repeat     重复字面值作为整数类型输入。
+    ///             :repeat <value>[ <count>]
+    ///                 <value> 需要重复的字面值，必选。
+    ///                 <count> 需要重复的次数，必须为非负数，可选，不指定时重复无限次数。
     Repeat { value: String, count: Option<usize> },
 }
 

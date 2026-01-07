@@ -12,6 +12,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cmd-help"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -79,6 +87,7 @@ name = "rust-pipe"
 version = "0.1.0"
 dependencies = [
  "clipboard-win",
+ "cmd-help",
  "itertools",
  "nom",
  "nom-language",

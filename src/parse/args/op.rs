@@ -1,5 +1,5 @@
 use crate::err::RpErr;
-use crate::op::Op;
+use crate::op::{Op, PeekTo};
 use crate::parse::args::{consume_if, consume_if_some, parse_general_file_info};
 use std::iter::Peekable;
 
@@ -73,9 +73,9 @@ fn parse_uniq(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Optio
 fn parse_peek(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {
     args.next();
     if let Some((file, append, crlf)) = parse_general_file_info(args, true) {
-        Ok(Some(Op::new_peek_to_file(file, append, crlf)))
+        Ok(Some(Op::new_peek(PeekTo::File { file, append, crlf })))
     } else {
-        Ok(Some(Op::new_peek_to_std_out()))
+        Ok(Some(Op::new_peek(PeekTo::StdOut)))
     }
 }
 

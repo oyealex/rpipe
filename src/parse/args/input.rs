@@ -22,27 +22,27 @@ pub(in crate::parse::args) fn parse_input(args: &mut Peekable<impl Iterator<Item
 }
 
 fn parse_std_in(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
-    args.next(); // 消耗`in`
+    args.next(); // 消耗命令文本
     Ok(Input::new_std_in())
 }
 
 fn parse_file(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
-    args.next(); // 消耗`file`
+    args.next(); // 消耗命令文本
     Ok(Input::new_file(parse_arg1(args, ":file", "file_name")?))
 }
 
 fn parse_clip(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
-    args.next(); // 消耗`clip`
+    args.next(); // 消耗命令文本
     Ok(Input::new_clip())
 }
 
 fn parse_of(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
-    args.next(); // 消耗`of`
+    args.next(); // 消耗命令文本
     Ok(Input::new_of(parse_arg1(args, ":of", "value")?))
 }
 
 fn parse_gen(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
-    args.next(); // 消耗`gen`
+    args.next(); // 消耗命令文本
     let range = args.next().ok_or_else(|| RpErr::MissingArg { cmd: ":gen", arg: "range" })?;
     match crate::parse::token::input::parse_range_in_gen(&range) {
         Ok((remaining, input)) => {
@@ -59,7 +59,7 @@ fn parse_gen(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input,
 }
 
 fn parse_repeat(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
-    args.next(); // 消耗`repeat`
+    args.next(); // 消耗命令文本
     let value = args.next().ok_or(RpErr::MissingArg { cmd: ":repeat", arg: "value" })?;
     let count = consume_if_some(args, |s| s.parse::<usize>().ok());
     Ok(Input::new_repeat(value, count))

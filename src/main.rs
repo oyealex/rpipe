@@ -28,6 +28,21 @@ fn main() {
 fn run() -> Result<(), RpErr> {
     let mut args = std::env::args().skip(1).peekable();
     let configs = parse::args::parse_configs(&mut args);
+    if configs.contains(&Config::Help) {
+        println!("数据输入命令：");
+        for (_, help) in Input::all_help() {
+            println!("{}\n", help);
+        }
+        println!("数据操作命令：");
+        for (_, help) in Op::all_help() {
+            println!("{}\n", help);
+        }
+        println!("数据输出命令：");
+        for (_, help) in Output::all_help() {
+            println!("{}\n", help);
+        }
+        return Ok(());
+    }
     let (input, ops, output) =
         if configs.contains(&Config::Eval) { parse_eval_token(&mut args)? } else { parse::args::parse(args)? };
     if configs.contains(&Config::Verbose) {
@@ -49,7 +64,7 @@ fn run() -> Result<(), RpErr> {
 fn parse_eval_token(args: &mut Peekable<Skip<Args>>) -> Result<(Input, Vec<Op>, Output), RpErr> {
     if let Some(mut token) = args.next() {
         token.push(' ');
-        match parse::token::parse_without_configs(&token) {
+        match parse::token::parse_without_configs(&token.trim_start()) {
             Ok((remaining, res)) => {
                 if !remaining.is_empty() {
                     Err(RpErr::UnexpectedRemaining { cmd: "--eval", arg: "token", remaining: remaining.to_owned() })?
