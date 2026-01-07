@@ -1,12 +1,16 @@
 use crate::config::{is_nocase, Config};
 use crate::err::RpErr;
 use crate::input::{Item, Pipe};
-use crate::RpRes;
+use crate::{Float, Integer, RpRes};
 use cmd_help::CmdHelp;
+use itertools::Itertools;
+use ordered_float::OrderedFloat;
 use std::borrow::Cow;
+use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
+use unicase::UniCase;
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum PeekTo {
@@ -14,7 +18,13 @@ pub(crate) enum PeekTo {
     File { file: String, append: bool, crlf: Option<bool> },
 }
 
-#[derive(Debug, Eq, PartialEq, CmdHelp)]
+#[derive(Debug, PartialEq)]
+pub(crate) enum SortBy {
+    Num(Option<Integer>, Option<Float>),
+    Text(bool /*nocase*/),
+}
+
+#[derive(Debug, PartialEq, CmdHelp)]
 pub(crate) enum Op {
     /* **************************************** 访问 **************************************** */
     /// :peek       打印每个值到标准输出或文件。
@@ -59,15 +69,24 @@ pub(crate) enum Op {
     // /// ```
     // Drop,
     // /* **************************************** 增加 **************************************** */
-    // /* **************************************** 调整位置 **************************************** */
-    // /// 排序：
-    // /// ```
-    // /// :sort[ number|num]
-    // ///
-    // /// :sort number
-    // /// :sort
-    // /// ```
-    // Sort,
+    /* **************************************** 调整位置 **************************************** */
+    /// :sort       排序。
+    ///             :sort[ num [<default>]][ nocase][ desc]
+    ///                 num         按照数值排序，可选，未指定时按照字典序排序。
+    ///                             尝试将文本解析为数值后排序，无法解析的按照<default>排序。
+    ///                 <default>   仅按照数值排序时生效，无法解析为数值的文本的默认数值，可选，
+    ///                             未指定时按照数值最大值处理。
+    ///                 nocase      忽略大小写，仅按字典序排序时生效，可选，未指定时不忽略大小写。
+    ///                 desc        逆序排序，可选，未指定时正序排序。
+    ///             例如：
+    ///                 :sort
+    ///                 :sort desc
+    ///                 :sort nocase
+    ///                 :sort nocase desc
+    ///                 :sort num
+    ///                 :sort num 10
+    ///                 :sort num 10 desc
+    Sort { sort_by: SortBy, desc: bool },
 }
 
 impl Op {
@@ -92,6 +111,27 @@ impl Op {
 
     pub(crate) fn wrap(self, pipe: Pipe, configs: &'static [Config]) -> RpRes {
         match self {
+            Op::Peek(peek) => match peek {
+                PeekTo::StdOut => Ok(pipe.op_inspect(|item| println!("{item}"))),
+                PeekTo::File { file, append, crlf } => {
+                    match OpenOptions::new().write(true).truncate(!append).append(append).create(true).open(&file) {
+                        Ok(mut writer) => {
+                            let ending = if crlf.unwrap_or(false) { "\r\n" } else { "\n" };
+                            Ok(pipe.op_inspect(move |item| {
+                                if let Err(err) = write!(writer, "{item}{ending}") {
+                                    RpErr::WriteToFileErr {
+                                        file: file.clone(),
+                                        item: item.to_string(),
+                                        err: err.to_string(),
+                                    }
+                                        .termination()
+                                }
+                            }))
+                        }
+                        Err(err) => RpErr::OpenFileErr { file, err: err.to_string() }.termination(),
+                    }
+                }
+            },
             Op::Upper => Ok(pipe.op_map(|mut item| match &mut item {
                 // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
                 Item::String(string) => {
@@ -102,7 +142,7 @@ impl Op {
                         item
                     }
                 }
-                Item::Integer(_) => item,
+                Item::Integer(_) | Item::Float(_) => item,
             })),
             Op::Lower => Ok(pipe.op_map(|mut item| match &mut item {
                 // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
@@ -114,7 +154,7 @@ impl Op {
                         item
                     }
                 }
-                Item::Integer(_) => item,
+                Item::Integer(_) | Item::Float(_) => item,
             })),
             Op::Case => {
                 Ok(pipe.op_map(|mut item| match &mut item {
@@ -130,7 +170,7 @@ impl Op {
                         }
                         item
                     }
-                    Item::Integer(_) => item,
+                    Item::Integer(_) | Item::Float(_) => item,
                 }))
             }
             Op::Replace { from, to, count, nocase } => {
@@ -146,15 +186,10 @@ impl Op {
                                 Cow::Owned(string) => Item::String(string),
                             }
                         }
-                        Item::Integer(integer) => {
-                            let integer_str = integer.to_string();
-                            let cow = replace_with_count_and_nocase(
-                                &integer_str,
-                                &*from,
-                                &*to,
-                                count,
-                                is_nocase(nocase, configs),
-                            );
+                        Item::Integer(_) | Item::Float(_) => {
+                            let string = item.to_string();
+                            let cow =
+                                replace_with_count_and_nocase(&string, &*from, &*to, count, is_nocase(nocase, configs));
                             match cow {
                                 Cow::Borrowed(_) => item,
                                 Cow::Owned(string) => Item::String(string),
@@ -174,40 +209,52 @@ impl Op {
                                 s.clone()
                             }
                         }
-                        Item::Integer(i) => i.to_string(),
+                        Item::Integer(_) | Item::Float(_) => item.to_string(),
                     };
                     seen.insert(key) // 返回 true 表示保留（首次出现）
                 }))
             }
-            Op::Peek(peek) => match peek {
-                PeekTo::StdOut => Ok(pipe.op_inspect(|item| match item {
-                    Item::String(string) => {
-                        println!("{}", string);
-                    }
-                    Item::Integer(integer) => {
-                        println!("{}", integer);
-                    }
-                })),
-                PeekTo::File { file, append, crlf } => {
-                    match OpenOptions::new().write(true).truncate(!append).append(append).create(true).open(&file) {
-                        Ok(mut writer) => {
-                            let ending = if crlf.unwrap_or(false) { "\r\n" } else { "\n" };
-                            Ok(pipe.op_inspect(move |item| {
-                                if let Err(err) = write!(writer, "{item}{ending}") {
-                                    RpErr::WriteToFileErr {
-                                        file: file.clone(),
-                                        item: item.to_string(),
-                                        err: err.to_string(),
-                                    }
-                                    .termination()
-                                }
-                            }))
-                        }
-                        Err(err) => RpErr::OpenFileErr { file, err: err.to_string() }.termination(),
+            Op::Sort { sort_by, desc } => match sort_by {
+                SortBy::Num(def_integer, def_float) => {
+                    if let Some(def) = def_integer {
+                        let key_fn = move |item: &Item| Integer::try_from(item).unwrap_or(def);
+                        let new_pipe = if desc {
+                            pipe.sorted_by_key(|item| Reverse(key_fn(item)))
+                        } else {
+                            pipe.sorted_by_key(key_fn)
+                        };
+                        Ok(Pipe::Bounded(Box::new(new_pipe)))
+                    } else if let Some(def) = def_float {
+                        let key_fn =
+                            move |item: &Item| OrderedFloat(Float::try_from(item).unwrap_or(def));
+                        let new_pipe = if desc {
+                            pipe.sorted_by_key(|item| Reverse(key_fn(item)))
+                        } else {
+                            pipe.sorted_by_key(key_fn)
+                        };
+                        Ok(Pipe::Bounded(Box::new(new_pipe)))
+                    } else {
+                        unreachable!("default integer or default float must be set")
                     }
                 }
-            },
-            _ => panic!("unimplemented"),
+                SortBy::Text(nocase) => {
+                    // TODO 2026-01-08 02:34 使用UniCase优化其他nocase场景
+                    let iter = if is_nocase(nocase, configs) {
+                        if desc {
+                            pipe.sorted_by_key(|item| Reverse(UniCase::new(item.to_string())))
+                        } else {
+                            pipe.sorted_by_key(|item| UniCase::new(item.to_string()))
+                        }
+                    } else {
+                        if desc {
+                            pipe.sorted_by_key(|item| Reverse(item.to_string()))
+                        } else {
+                            pipe.sorted_by_key(|item| item.to_string())
+                        }
+                    };
+                    Ok(Pipe::Bounded(Box::new(iter)))
+                }
+            }
         }
     }
 }

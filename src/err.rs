@@ -1,47 +1,58 @@
 use std::process::{ExitCode, Termination};
 use thiserror::Error;
+use cmd_help::CmdHelp;
 
-#[derive(Error, Debug, Eq, PartialEq)]
+#[derive(Error, Debug, Eq, PartialEq, CmdHelp)]
 pub(crate) enum RpErr {
+    /// 1       解析配置Token失败。
     #[error("[ParseConfigTokenErr] Invalid args: {0}")]
     ParseConfigTokenErr(String),
 
+    /// 2       解析输入Token失败。
     #[error("[ParseInputTokenErr] Invalid args: {0}")]
     ParseInputTokenErr(String),
 
+    /// 3       解析操作Token失败。
     #[error("[ParseOpTokenErr] Invalid args: {0}")]
     ParseOpTokenErr(String),
 
+    /// 4       解析输出Token失败。
     #[error("[ParseOutputTokenErr] Invalid args: {0}")]
     ParseOutputTokenErr(String),
 
+    /// 5       参数解析失败。
     #[error("[ArgParseErr] Unable to parse `{arg_value}` in argument `{arg}` of cmd `{cmd}`, error: {error}")]
     ArgParseErr { cmd: &'static str, arg: &'static str, arg_value: String, error: String },
 
+    /// 6       参数内容无法完全解析，存在剩余无法解析的内容。
     #[error("[UnexpectedRemaining] Unexpected remaining value `{remaining}` in argument `{arg}` of cmd `{cmd}`")]
     UnexpectedRemaining { cmd: &'static str, arg: &'static str, remaining: String },
 
+    /// 7       命令缺少参数。
     #[error("[MissingArg] Missing argument `{arg}` of cmd `{cmd}`")]
     MissingArg { cmd: &'static str, arg: &'static str },
 
+    /// 8       未知参数。
     #[error("[UnknownArgs] Unknown arguments: {args:?}")]
     UnknownArgs { args: Vec<String> },
 
+    /// 9       从剪切板读取数据失败。
     #[error("[ReadClipboardTextErr] Read text from clipboard error: {0}")]
     ReadClipboardTextErr(String),
 
-    #[error("[OpenInputFileErr] Open input file `{file}` error: {err}")]
-    OpenInputFileErr { file: String, err: String },
+    /// 10      从文件读取数据失败。
+    #[error("[ReadFromFileErr] Read line `{line_no}` of file `{file}` error: {err}")]
+    ReadFromFileErr { file: String, line_no: usize, err: String },
 
-    #[error("[ReadFromInputFileErr] Read line `{line_no}` of input file `{file}` error: {err}")]
-    ReadFromInputFileErr { file: String, line_no: usize, err: String },
-
+    /// 11      写入数据到剪切板失败。
     #[error("[WriteToClipboardErr] Write result to clipboard error: {0}")]
     WriteToClipboardErr(String),
 
+    /// 12      打开文件失败。
     #[error("[OpenFileErr] Open output file `{file}` error: {err}")]
     OpenFileErr { file: String, err: String },
 
+    /// 13      写入数据到文件失败。
     #[error("[WriteToFileErr] Write item `{item}` to file `{file}` error: {err}")]
     WriteToFileErr { file: String, item: String, err: String },
 }
@@ -72,8 +83,7 @@ impl RpErr {
             RpErr::MissingArg { .. } => code.next().unwrap(),
             RpErr::UnknownArgs { .. } => code.next().unwrap(),
             RpErr::ReadClipboardTextErr(_) => code.next().unwrap(),
-            RpErr::OpenInputFileErr { .. } => code.next().unwrap(),
-            RpErr::ReadFromInputFileErr { .. } => code.next().unwrap(),
+            RpErr::ReadFromFileErr { .. } => code.next().unwrap(),
             RpErr::WriteToClipboardErr(_) => code.next().unwrap(),
             RpErr::OpenFileErr { .. } => code.next().unwrap(),
             RpErr::WriteToFileErr { .. } => code.next().unwrap(),

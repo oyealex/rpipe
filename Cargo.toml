@@ -4,9 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-itertools = "0.14.0"
-nom = "8.0.0"
-nom-language = "0.1.0"
-thiserror = "2.0.17"
-clipboard-win = "5.4.1"
-cmd-help = { path = "./cmd_help" }
+itertools = "0.14.0" # 迭代器增强
+nom = "8.0.0" # 模式解析
+nom-language = "0.1.0" # 模式解析错误信息辅助
+thiserror = "2.0.17" # 错误码
+clipboard-win = "5.4.1" # windows剪切板
+ordered-float = "5.1.0" # 浮点数排序
+unicase = "2.9.0" # 忽略大小写
+cmd-help = { path = "./cmd_help" } # doc生成帮助

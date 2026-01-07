@@ -1,5 +1,6 @@
+use std::borrow::Cow;
 use crate::err::RpErr;
-use crate::{Integer, RpRes};
+use crate::{Float, Integer, RpRes};
 use cmd_help::CmdHelp;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -8,10 +9,11 @@ use std::io::{BufRead, BufReader};
 use std::iter::repeat;
 use std::rc::Rc;
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) enum Item {
     String(String),
     Integer(Integer),
+    Float(Float),
 }
 
 impl From<Item> for String {
@@ -19,6 +21,7 @@ impl From<Item> for String {
         match value {
             Item::String(string) => string,
             Item::Integer(integer) => integer.to_string(),
+            Item::Float(float) => float.to_string(),
         }
     }
 }
@@ -28,6 +31,41 @@ impl From<&Item> for String {
         match value {
             Item::String(string) => string.to_string(),
             Item::Integer(integer) => integer.to_string(),
+            Item::Float(float) => float.to_string(),
+        }
+    }
+}
+
+impl TryFrom<&Item> for Integer {
+    type Error = ();
+
+    fn try_from(value: &Item) -> Result<Self, Self::Error> {
+        match value {
+            Item::String(string) => string.parse::<Integer>().map_err(|_| ()),
+            Item::Integer(integer) => Ok(*integer),
+            Item::Float(float) => {
+                if !float.is_finite() // 检查是否为 NaN 或无穷
+                    || *float < Integer::MIN as Float // 检查是否在 Integer 范围内
+                    || *float > Integer::MAX as Float // 检查是否为整数（无小数部分）
+                    || (*float).fract() != 0.0
+                {
+                    Err(())
+                } else {
+                    Ok(*float as Integer)
+                }
+            }
+        }
+    }
+}
+
+impl TryFrom<&Item> for Float {
+    type Error = ();
+
+    fn try_from(value: &Item) -> Result<Self, Self::Error> {
+        match value {
+            Item::String(string) => string.parse::<Float>().map_err(|_| ()),
+            Item::Integer(integer) => Ok(*integer as Float),
+            Item::Float(float) => Ok(*float),
         }
     }
 }
@@ -37,6 +75,17 @@ impl Display for Item {
         match self {
             Item::String(string) => write!(f, "{string}"),
             Item::Integer(integer) => write!(f, "{integer}"),
+            Item::Float(float) => write!(f, "{float}"),
+        }
+    }
+}
+
+impl Item {
+    pub fn to_string_lossy(&self) -> Cow<'_, str> {
+        match self {
+            Item::String(s) => Cow::Borrowed(s),
+            Item::Integer(i) => Cow::Owned(i.to_string()),
+            Item::Float(f) => Cow::Owned(f.to_string()),
         }
     }
 }
@@ -170,7 +219,7 @@ impl Input {
                             Ok(fin) => (fin, f),
                             Err(err) => {
                                 // TODO 2026-01-05 01:18 根据全局配置选择跳过
-                                RpErr::OpenInputFileErr { file: f, err: err.to_string() }.termination();
+                                RpErr::OpenFileErr { file: f, err: err.to_string() }.termination();
                             }
                         }
                     })
@@ -181,7 +230,7 @@ impl Input {
                             Ok(line) => line,
                             Err(err) => {
                                 // TODO 2026-01-05 01:18 根据全局配置选择跳过
-                                RpErr::ReadFromInputFileErr { file: (*f).clone(), line_no: line, err: err.to_string() }
+                                RpErr::ReadFromFileErr { file: (*f).clone(), line_no: line, err: err.to_string() }
                                     .termination();
                             }
                         }

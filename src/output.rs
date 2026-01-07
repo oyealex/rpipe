@@ -1,5 +1,5 @@
 use crate::err::RpErr;
-use crate::input::{Item, Pipe};
+use crate::input::Pipe;
 use cmd_help::CmdHelp;
 use itertools::Itertools;
 use std::fs::OpenOptions;
@@ -48,10 +48,7 @@ impl Output {
         match self {
             Output::StdOut => {
                 for item in pipe {
-                    match item {
-                        Item::String(string) => println!("{}", string),
-                        Item::Integer(integer) => println!("{}", integer),
-                    }
+                    println!("{item}");
                 }
                 Ok(())
             }

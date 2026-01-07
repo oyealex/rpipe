@@ -14,8 +14,8 @@ mod op;
 mod output;
 mod parse;
 
-/// 整数类型
 pub(crate) type Integer = i64;
+pub(crate) type Float = f64;
 
 pub(crate) type RpRes = Result<Pipe, RpErr>;
 
@@ -93,6 +93,10 @@ fn print_help() {
     }
     println!("\noutput_cmd 数据输出命令：");
     for (_, help) in Output::all_help() {
+        println!("{}", help);
+    }
+    println!("\n命令退出码：");
+    for (_, help) in RpErr::all_help() {
         println!("{}", help);
     }
 }
