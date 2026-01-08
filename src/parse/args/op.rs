@@ -1,6 +1,6 @@
 use crate::err::RpErr;
 use crate::op::{Op, PeekTo, SortBy};
-use crate::parse::args::{consume_if, consume_if_some, parse_general_file_info};
+use crate::parse::args::{consume_if, consume_if_some, parse_general_file_info, parse_opt_arg};
 use crate::{Float, Integer};
 use std::iter::Peekable;
 
@@ -23,6 +23,7 @@ fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<
                 ":case" => parse_case(args),
                 ":replace" => parse_replace(args),
                 ":uniq" => parse_uniq(args),
+                ":join" => parse_join(args),
                 ":sort" => parse_sort(args),
                 _ => Ok(None),
             }
@@ -79,6 +80,11 @@ fn parse_uniq(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Optio
         args.next();
     }
     Ok(Some(Op::new_uniq(nocase)))
+}
+
+fn parse_join(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {
+    args.next();
+    Ok(Some(Op::new_join(parse_opt_arg(args).unwrap_or_default())))
 }
 
 fn parse_sort(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {

@@ -44,7 +44,7 @@ pub(crate) enum Op {
     /// :case       切换ASCII大小写。
     Case,
     /// :replace    替换字符串。
-    ///             数字类型元素当作字符串进行替换，替换后转为字符串。
+    ///             数值类型元素当作字符串进行替换，替换后转为字符串。
     ///             :replace <from> <to>[ <count>][ nocase]
     ///                 <from>  待替换的字符串，必选。
     ///                 <to>    待替换为的字符串，必选。
@@ -58,13 +58,17 @@ pub(crate) enum Op {
     Replace { from: String, to: String, count: Option<usize>, nocase: bool },
     /* **************************************** 减少 **************************************** */
     /// :uniq       去重。
-    ///             数字类型元素当作字符串，但是去重后仍为数字类型。
+    ///             数值类型元素当作字符串处理，但是去重后仍为原数值类型。
     ///             :uniq[ nocase]
     ///                 nocase  去重时忽略大小写，可选，不指定时不忽略大小写。
     ///             例如：
     ///                 :uniq
     ///                 :uniq nocase
     Uniq { nocase: bool },
+    /// :join       合并数据。
+    ///             数值类型元素当作字符串处理。
+    ///             :join
+    Join { delimiter: String, leading: String, ending: String, count: Option<usize> },
     // /// 丢弃：
     // /// ```
     // /// :drop
@@ -115,11 +119,14 @@ impl Op {
     pub(crate) fn new_uniq(nocase: bool) -> Op {
         Op::Uniq { nocase }
     }
+    pub(crate) fn new_join(separator: String) -> Op {
+        Op::Join { delimiter: separator, leading: String::new(), ending: String::new(), count: None }
+    }
     pub(crate) fn new_sort(sort_by: SortBy, desc: bool) -> Op {
         Op::Sort { sort_by, desc }
     }
 
-    pub(crate) fn wrap(self, pipe: Pipe, configs: &'static [Config]) -> RpRes {
+    pub(crate) fn wrap(self, mut pipe: Pipe, configs: &'static [Config]) -> RpRes {
         match self {
             Op::Peek(peek) => match peek {
                 PeekTo::StdOut => Ok(pipe.op_inspect(|item| println!("{item}"))),
@@ -223,6 +230,79 @@ impl Op {
                     };
                     seen.insert(key) // 返回 true 表示保留（首次出现）
                 }))
+            }
+            Op::Join { delimiter, leading, ending, count } => {
+                if let Some(count) = count {
+                    if count > 0 {
+                        /*impl Pipe {
+    pub fn group_and_join(
+        self,
+        count: usize,
+        delimiter: String, // 注意：改为 owned String 避免闭包捕获引用
+    ) -> Result<Pipe, Error> {
+        assert!(count > 0, "group size must be positive");
+
+        let grouped_iter = GroupJoin {
+            source: self.map(|item| item.into()), // Item → String
+            group_size: count,
+            delimiter,
+        };
+
+        Ok(Pipe::Unbounded(Box::new(grouped_iter)))
+    }
+}
+
+// 自定义分组迭代器（完全 owned，无引用）
+struct GroupJoin<I> {
+    source: I,
+    group_size: usize,
+    delimiter: String,
+}
+
+impl<I> Iterator for GroupJoin<I>
+where
+    I: Iterator<Item = String>,
+{
+    type Item = Item; // 假设你有 Item::String(String) 构造方式
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut group = Vec::with_capacity(self.group_size);
+        for _ in 0..self.group_size {
+            if let Some(item) = self.source.next() {
+                group.push(item);
+            } else {
+                break;
+            }
+        }
+        if group.is_empty() {
+            None
+        } else {
+            let joined = group.join(&self.delimiter);
+            Some(Item::String(joined)) // 或根据你的 Item 构造方式调整
+        }
+    }
+}*/
+
+                        // Item → String
+                        // let grouped_iter = pipe.map(|item| match item.to_string_lossy() {
+                        //     Cow::Borrowed(string) => string.to_owned(),
+                        //     Cow::Owned(string) => string,
+                        // })
+                        //     .chunks(count)
+                        //     .into_iter()
+                        //     .map(move |mut chunk| Item::String(chunk.join(&delimiter)));
+                        // // 分组后的迭代器无法双向遍历，只能返回 Unbounded
+                        // Ok(Pipe::Unbounded(Box::new(grouped_iter)))
+                        todo!()
+                    } else {
+                        unreachable!("join count must be greater than zero");
+                    }
+                } else {
+                    Ok(Pipe::Bounded(Box::new(std::iter::once(Item::String(format!(
+                        "{leading}{}{ending}",
+                        pipe.join(&delimiter)
+                    ))))))
+                }
             }
             Op::Sort { sort_by, desc } => match sort_by {
                 SortBy::Num(def_integer, def_float) => {

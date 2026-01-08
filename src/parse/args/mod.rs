@@ -22,9 +22,16 @@ pub(crate) fn parse(mut args: Peekable<impl Iterator<Item = String>>) -> Result<
     if !remaining.is_empty() { Err(RpErr::UnknownArgs { args: remaining }) } else { Ok((input, ops, output)) }
 }
 
+/// 解析一个或多个参数
 fn parse_arg1(
     args: &mut Peekable<impl Iterator<Item = String>>, cmd: &'static str, arg: &'static str,
 ) -> Result<Vec<String>, RpErr> {
+    let res = parse_arg0(args);
+    if res.is_empty() { Err(RpErr::MissingArg { cmd, arg }) } else { Ok(res) }
+}
+
+/// 解析零个或多个参数
+fn parse_arg0(args: &mut Peekable<impl Iterator<Item = String>>) -> Vec<String> {
     let mut res = Vec::new();
     while let Some(value) = args.peek()
         && crate::parse::token::cmd_token(value).is_err()
@@ -32,7 +39,19 @@ fn parse_arg1(
         let arg = args.next().unwrap();
         res.push(if let Some(stripped) = arg.strip_prefix("::") { format!(":{}", stripped) } else { arg });
     }
-    if res.is_empty() { Err(RpErr::MissingArg { cmd, arg }) } else { Ok(res) }
+    res
+}
+
+/// 解析一个可选的参数
+fn parse_opt_arg(args: &mut Peekable<impl Iterator<Item = String>>) -> Option<String> {
+    if let Some(value) = args.peek()
+        && crate::parse::token::cmd_token(value).is_err()
+    {
+        let arg = args.next().unwrap();
+        Some(if let Some(stripped) = arg.strip_prefix("::") { format!(":{}", stripped) } else { arg })
+    } else {
+        None
+    }
 }
 
 fn consume_if<F>(args: &mut Peekable<impl Iterator<Item = String>>, f: F) -> Option<String>

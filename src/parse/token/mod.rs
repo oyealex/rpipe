@@ -51,14 +51,14 @@ fn general_file_info<'a>(
     optional: bool,
 ) -> impl Parser<&'a str, Output = (String, Option<&'a str>, Option<&'a str>), Error = ParserError<'a>> {
     (
-        if optional { arg_non_cmd } else { arg },                             // 文件
+        if optional { non_cmd_arg } else { arg },                             // 文件
         opt(preceded(space1, tag_no_case("append"))),                         // 是否追加
         opt(preceded(space1, alt((tag_no_case("lf"), tag_no_case("crlf"))))), // 换行符
     )
 }
 /// 构造一个解析器，支持解析`cmd arg0 [arg1 ][arg2 ][...]`，解析至少一个参数直到遇到下一个冒号命令，
 /// 如果参数以冒号开头需要使用`::`代替开头的`:`。
-fn cmd_args1(cmd: &str) -> impl Parser<&str, Output = Vec<String>, Error = ParserError<'_>> {
+fn cmd_arg1(cmd: &str) -> impl Parser<&str, Output = Vec<String>, Error = ParserError<'_>> {
     context(
         "Cmd_Args1",
         preceded(
@@ -67,7 +67,7 @@ fn cmd_args1(cmd: &str) -> impl Parser<&str, Output = Vec<String>, Error = Parse
             map(
                 verify(
                     many_till(
-                        terminated(arg_non_cmd, space1), // 参数、空格（丢弃）
+                        terminated(non_cmd_arg, space1), // 参数、空格（丢弃）
                         alt((peek(cmd_token), eof)),     // 直到下一个命令，但不消耗此命令，或达到结尾，忽略结果
                     ),
                     |(args, _)| !args.is_empty(), // 验证：参数非空
@@ -78,7 +78,7 @@ fn cmd_args1(cmd: &str) -> impl Parser<&str, Output = Vec<String>, Error = Parse
     )
 }
 
-fn arg_non_cmd(input: &str) -> IResult<&str, String, ParserError<'_>> {
+fn non_cmd_arg(input: &str) -> IResult<&str, String, ParserError<'_>> {
     context(
         "arg_non_cmd",
         map(verify(arg, |s: &String| cmd_token(s).is_err()), |s| {
@@ -224,23 +224,23 @@ mod tests {
 
     #[test]
     fn test_arg_non_cmd() {
-        assert_eq!(arg_non_cmd("arg"), Ok(("", "arg".to_string())));
-        assert_eq!(arg_non_cmd("arg1 arg2"), Ok((" arg2", "arg1".to_string())));
-        assert!(arg_non_cmd(":arg1 arg2").is_err());
-        assert_eq!(arg_non_cmd("::arg1 arg2"), Ok((" arg2", ":arg1".to_string())));
-        assert_eq!(arg_non_cmd("'::arg1 arg2'"), Ok(("", ":arg1 arg2".to_string())));
+        assert_eq!(non_cmd_arg("arg"), Ok(("", "arg".to_string())));
+        assert_eq!(non_cmd_arg("arg1 arg2"), Ok((" arg2", "arg1".to_string())));
+        assert!(non_cmd_arg(":arg1 arg2").is_err());
+        assert_eq!(non_cmd_arg("::arg1 arg2"), Ok((" arg2", ":arg1".to_string())));
+        assert_eq!(non_cmd_arg("'::arg1 arg2'"), Ok(("", ":arg1 arg2".to_string())));
     }
 
     #[test]
     fn test_cmd_args1() {
-        assert_eq!(cmd_args1(":cmd").parse(":cmd arg "), Ok(("", vec!["arg".to_string()])));
-        assert_eq!(cmd_args1(":cmd").parse(":cmd arg :cmd1"), Ok((":cmd1", vec!["arg".to_string()])));
+        assert_eq!(cmd_arg1(":cmd").parse(":cmd arg "), Ok(("", vec!["arg".to_string()])));
+        assert_eq!(cmd_arg1(":cmd").parse(":cmd arg :cmd1"), Ok((":cmd1", vec!["arg".to_string()])));
         assert_eq!(
-            cmd_args1(":cmd").parse(":cmd arg1 'arg2' :cmd1"),
+            cmd_arg1(":cmd").parse(":cmd arg1 'arg2' :cmd1"),
             Ok((":cmd1", vec!["arg1".to_string(), "arg2".to_string()]))
         );
         assert_eq!(
-            cmd_args1(":cmd").parse(":cmd ::arg1 :::arg2 ::::arg3 :cmd4"),
+            cmd_arg1(":cmd").parse(":cmd ::arg1 :::arg2 ::::arg3 :cmd4"),
             Ok((":cmd4", vec![":arg1".to_string(), "::arg2".to_string(), ":::arg3".to_string()]))
         );
     }

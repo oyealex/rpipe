@@ -1,5 +1,5 @@
 use crate::input::Input;
-use crate::parse::token::cmd_args1;
+use crate::parse::token::cmd_arg1;
 use crate::parse::token::{arg, parse_integer, ParserError};
 use crate::Integer;
 use nom::branch::alt;
@@ -34,7 +34,7 @@ fn parse_std_in(input: &str) -> InputResult<'_> {
 }
 
 fn parse_file(input: &str) -> InputResult<'_> {
-    context("Input::File", map(cmd_args1(":file"), |files| Input::new_file(files))).parse(input)
+    context("Input::File", map(cmd_arg1(":file"), |files| Input::new_file(files))).parse(input)
 }
 
 fn parse_clip(input: &str) -> InputResult<'_> {
@@ -42,7 +42,7 @@ fn parse_clip(input: &str) -> InputResult<'_> {
 }
 
 fn parse_of(input: &str) -> InputResult<'_> {
-    context("Input::Of", map(cmd_args1(":of"), |values| Input::new_of(values))).parse(input)
+    context("Input::Of", map(cmd_arg1(":of"), |values| Input::new_of(values))).parse(input)
 }
 
 fn parse_gen(input: &str) -> InputResult<'_> {
