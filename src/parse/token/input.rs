@@ -1,6 +1,6 @@
 use crate::input::Input;
-use crate::parse::token::cmd_arg1;
-use crate::parse::token::{arg, parse_integer, ParserError};
+use crate::parse::token::{arg_exclude_cmd, cmd_arg1};
+use crate::parse::token::{parse_integer, ParserError};
 use crate::Integer;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
@@ -34,7 +34,11 @@ fn parse_std_in(input: &str) -> InputResult<'_> {
 }
 
 fn parse_file(input: &str) -> InputResult<'_> {
-    context("Input::File", map(cmd_arg1(":file"), |files| Input::new_file(files))).parse(input)
+    context(
+        "Input::File",
+        map(terminated(cmd_arg1(":file", "Input::File::<file_name>"), space1), |files| Input::new_file(files)),
+    )
+    .parse(input)
 }
 
 fn parse_clip(input: &str) -> InputResult<'_> {
@@ -42,18 +46,13 @@ fn parse_clip(input: &str) -> InputResult<'_> {
 }
 
 fn parse_of(input: &str) -> InputResult<'_> {
-    context("Input::Of", map(cmd_arg1(":of"), |values| Input::new_of(values))).parse(input)
+    context("Input::Of", map(terminated(cmd_arg1(":of", "Input::Of::<text>"), space1), |values| Input::new_of(values)))
+        .parse(input)
 }
 
 fn parse_gen(input: &str) -> InputResult<'_> {
-    context(
-        "Input::Gen",
-        preceded(
-            (tag_no_case(":gen"), space1), // 丢弃：命令+空格
-            terminated(parse_range_in_gen, space1),
-        ),
-    )
-    .parse(input)
+    context("Input::Gen", terminated(preceded(tag_no_case(":gen"), preceded(space1, parse_range_in_gen)), space1))
+        .parse(input)
 }
 
 pub(in crate::parse) fn parse_range_in_gen(input: &str) -> InputResult<'_> {
@@ -85,10 +84,10 @@ fn parse_repeat(input: &str) -> InputResult<'_> {
         map(
             terminated(
                 preceded(
-                    (tag_no_case(":repeat"), space1),    // 丢弃：命令+空格
-                    (arg, opt(preceded(space1, usize))), // 保留：重复的值和可选的次数
+                    tag_no_case(":repeat"),                                            // 命令
+                    (preceded(space1, arg_exclude_cmd), opt(preceded(space1, usize))), // 重复的值和可选的次数
                 ),
-                space1, // 丢弃：结尾空格
+                space1, // 结尾空格
             ),
             |(value, count)| Input::new_repeat(value, count),
         ),

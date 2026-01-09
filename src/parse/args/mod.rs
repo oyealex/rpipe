@@ -110,8 +110,8 @@ fn parse_general_file_info(
         && (optional && crate::parse::token::cmd_token(value).is_err() || !optional)
     {
         let file = args.next().unwrap();
-        let (append, crlf) = if let Some(append_or_ending) = args.peek() {
-            if append_or_ending.eq_ignore_ascii_case("append") {
+        let (append, crlf) = if let Some(append_or_postfix) = args.peek() {
+            if append_or_postfix.eq_ignore_ascii_case("append") {
                 args.next(); // 消耗`append`
                 if let Some(crlf) = args.peek() {
                     if crlf.eq_ignore_ascii_case("crlf") {
@@ -126,10 +126,10 @@ fn parse_general_file_info(
                 } else {
                     (true, None)
                 }
-            } else if append_or_ending.eq_ignore_ascii_case("crlf") {
+            } else if append_or_postfix.eq_ignore_ascii_case("crlf") {
                 args.next(); // 消耗`crlf`
                 (false, Some(true))
-            } else if append_or_ending.eq_ignore_ascii_case("lf") {
+            } else if append_or_postfix.eq_ignore_ascii_case("lf") {
                 args.next(); // 消耗`lf`
                 (false, Some(false))
             } else {
@@ -146,5 +146,10 @@ fn parse_general_file_info(
 
 #[cfg(test)]
 fn build_args(args_line: &'static str) -> Peekable<impl Iterator<Item = String>> {
-    args_line.split(' ').into_iter().map(String::from).peekable()
+    args_line
+        .split(' ')
+        .into_iter()
+        .map(|s| crate::parse::token::arg(s).unwrap_or_default().1)
+        .map(String::from)
+        .peekable()
 }

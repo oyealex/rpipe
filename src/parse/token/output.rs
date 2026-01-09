@@ -29,7 +29,7 @@ fn parse_to_std_out(input: &str) -> OutputResult<'_> {
     context(
         "Output::StdOut",
         map(
-            (tag_no_case(":to"), space1, tag_no_case("out"), space1), // 丢弃：`:to out `
+            (tag_no_case(":to"), space1, tag_no_case("out"), space1), // 命令
             |_| Output::new_std_out(),
         ),
     )
@@ -42,13 +42,13 @@ fn parse_to_file(input: &str) -> OutputResult<'_> {
         map(
             terminated(
                 preceded(
-                    (tag_no_case(":to"), space1, tag_no_case("file"), space1), // 丢弃：`:to file `
-                    general_file_info(false),
+                    (tag_no_case(":to"), space1, tag_no_case("file")), // 命令
+                    preceded(space1, general_file_info(false)),
                 ),
                 space1, // 丢弃：结尾空格
             ),
-            |(file, append_opt, ending_opt): (String, Option<_>, Option<&str>)| {
-                Output::new_file(file, append_opt.is_some(), ending_opt.map(|s| s.eq_ignore_ascii_case("crlf")))
+            |(file, append_opt, postfix_opt): (String, Option<_>, Option<&str>)| {
+                Output::new_file(file, append_opt.is_some(), postfix_opt.map(|s| s.eq_ignore_ascii_case("crlf")))
             },
         ),
     )
@@ -66,7 +66,7 @@ fn parse_to_clip(input: &str) -> OutputResult<'_> {
                     space1,                                                               // 结尾空格
                 ),
             ), // 丢弃：`to clip `
-            |ending_opt: Option<&str>| Output::new_clip(ending_opt.map(|s| s.eq_ignore_ascii_case("crlf"))),
+            |postfix_opt: Option<&str>| Output::new_clip(postfix_opt.map(|s| s.eq_ignore_ascii_case("crlf"))),
         ),
     )
     .parse(input)

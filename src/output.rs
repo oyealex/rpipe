@@ -55,9 +55,9 @@ impl Output {
             Output::File { file, append, crlf } => {
                 match OpenOptions::new().write(true).truncate(!append).append(append).create(true).open(&file) {
                     Ok(mut writer) => {
-                        let ending = if crlf.unwrap_or(false) { "\r\n" } else { "\n" };
+                        let postfix = if crlf.unwrap_or(false) { "\r\n" } else { "\n" };
                         for item in pipe {
-                            write!(writer, "{item}{ending}").map_err(|err| RpErr::WriteToFileErr {
+                            write!(writer, "{item}{postfix}").map_err(|err| RpErr::WriteToFileErr {
                                 file: file.clone(),
                                 item: item.to_string(),
                                 err: err.to_string(),

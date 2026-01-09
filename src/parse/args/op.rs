@@ -85,21 +85,22 @@ fn parse_uniq(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Optio
 fn parse_join(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {
     args.next();
     let (join_info, count) = if let Some(delimiter) = parse_opt_arg(args) {
-        if let Some(leading) = parse_opt_arg(args) {
-            if let Some(ending) = parse_opt_arg(args) {
-                if let Some(count) = args.peek()
-                    && let Ok(count) = count.parse::<usize>()
+        if let Some(prefix) = parse_opt_arg(args) {
+            if let Some(postfix) = parse_opt_arg(args) {
+                if let Some(size) = args.peek()
+                    && let Ok(size) = size.parse::<usize>()
+                    && size > 0
                 {
                     args.next();
-                    (JoinInfo { delimiter, leading, ending }, Some(count))
+                    (JoinInfo { delimiter, prefix, postfix }, Some(size))
                 } else {
-                    (JoinInfo { delimiter, leading, ending }, None)
+                    (JoinInfo { delimiter, prefix, postfix }, None)
                 }
             } else {
-                (JoinInfo { delimiter, leading, ending: String::new() }, None)
+                (JoinInfo { delimiter, prefix, postfix: String::new() }, None)
             }
         } else {
-            (JoinInfo { delimiter, leading: String::new(), ending: String::new() }, None)
+            (JoinInfo { delimiter, prefix: String::new(), postfix: String::new() }, None)
         }
     } else {
         (JoinInfo::default(), None)
@@ -237,6 +238,63 @@ mod tests {
         let mut args = build_args(":uniq nocase");
         assert_eq!(Ok(Some(Op::new_uniq(true))), parse_op(&mut args));
         assert!(args.next().is_none());
+    }
+
+    #[test]
+    fn test_parse_join() {
+        let mut args = build_args(":join");
+        assert_eq!(Ok(Some(Op::new_join(JoinInfo::default(), None))), parse_join(&mut args));
+        assert!(args.next().is_none());
+
+        let mut args = build_args(":join d");
+        assert_eq!(
+            Ok(Some(Op::new_join(
+                JoinInfo { delimiter: "d".to_string(), prefix: String::new(), postfix: String::new() },
+                None
+            ))),
+            parse_join(&mut args)
+        );
+        assert!(args.next().is_none());
+
+        let mut args = build_args(":join d l");
+        assert_eq!(
+            Ok(Some(Op::new_join(
+                JoinInfo { delimiter: "d".to_string(), prefix: "l".to_string(), postfix: String::new() },
+                None
+            ))),
+            parse_join(&mut args)
+        );
+        assert!(args.next().is_none());
+
+        let mut args = build_args(":join d l e");
+        assert_eq!(
+            Ok(Some(Op::new_join(
+                JoinInfo { delimiter: "d".to_string(), prefix: "l".to_string(), postfix: "e".to_string() },
+                None
+            ))),
+            parse_join(&mut args)
+        );
+        assert!(args.next().is_none());
+
+        let mut args = build_args(":join d l e 10");
+        assert_eq!(
+            Ok(Some(Op::new_join(
+                JoinInfo { delimiter: "d".to_string(), prefix: "l".to_string(), postfix: "e".to_string() },
+                Some(10)
+            ))),
+            parse_join(&mut args)
+        );
+        assert!(args.next().is_none());
+
+        let mut args = build_args(r#":join d '' "" -10"#);
+        assert_eq!(
+            Ok(Some(Op::new_join(
+                JoinInfo { delimiter: "d".to_string(), prefix: "".to_string(), postfix: "".to_string() },
+                None
+            ))),
+            parse_join(&mut args)
+        );
+        assert_eq!(Some("-10".to_string()), args.next());
     }
 
     #[test]

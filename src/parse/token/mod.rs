@@ -18,7 +18,7 @@ use nom::character::complete::{none_of, space1};
 use nom::combinator::{eof, map, opt, peek, recognize, verify};
 use nom::error::context;
 use nom::multi::{fold_many1, many_till};
-use nom::sequence::{delimited, preceded, terminated};
+use nom::sequence::{delimited, preceded};
 use nom::{ExtendInto, IResult, Parser};
 use nom_language::error::VerboseError;
 use std::borrow::Cow;
@@ -31,6 +31,7 @@ use crate::parse::token::config::parse_configs;
 /// 重新导出解析整数的函数
 pub(crate) use nom::character::complete::i64 as parse_integer;
 
+// TODO 2026-01-10 02:24 完善上下文
 #[allow(unused)]
 pub(crate) fn parse(token: &str) -> Result<(&str, (Vec<Config>, Input, Vec<Op>, Output)), RpErr> {
     let (token, configs) = parse_configs(token).map_err(|err| RpErr::ParseConfigTokenErr(err.to_string()))?;
@@ -51,34 +52,36 @@ fn general_file_info<'a>(
     optional: bool,
 ) -> impl Parser<&'a str, Output = (String, Option<&'a str>, Option<&'a str>), Error = ParserError<'a>> {
     (
-        if optional { non_cmd_arg } else { arg },                             // 文件
+        if optional { arg_exclude_cmd } else { arg },                         // 文件
         opt(preceded(space1, tag_no_case("append"))),                         // 是否追加
         opt(preceded(space1, alt((tag_no_case("lf"), tag_no_case("crlf"))))), // 换行符
     )
 }
 /// 构造一个解析器，支持解析`cmd arg0 [arg1 ][arg2 ][...]`，解析至少一个参数直到遇到下一个冒号命令，
 /// 如果参数以冒号开头需要使用`::`代替开头的`:`。
-fn cmd_arg1(cmd: &str) -> impl Parser<&str, Output = Vec<String>, Error = ParserError<'_>> {
-    context(
-        "Cmd_Args1",
-        preceded(
-            // 丢弃： 命令标记、空格
-            (tag_no_case(cmd), space1),
-            map(
+fn cmd_arg1<'a>(
+    cmd: &'a str, arg_name: &'static str,
+) -> impl Parser<&'a str, Output = Vec<String>, Error = ParserError<'a>> {
+    preceded(
+        // 丢弃：命令标记
+        tag_no_case(cmd),
+        map(
+            context(
+                arg_name,
                 verify(
                     many_till(
-                        terminated(non_cmd_arg, space1), // 参数、空格（丢弃）
-                        alt((peek(cmd_token), eof)),     // 直到下一个命令，但不消耗此命令，或达到结尾，忽略结果
+                        preceded(space1, arg_exclude_cmd),               // 空格、参数
+                        peek(alt(((space1, cmd_token), (space1, eof)))), // 直到下一个命令，但不消耗此命令，或达到结尾，忽略结果
                     ),
                     |(args, _)| !args.is_empty(), // 验证：参数非空
                 ),
-                |(args, _)| args,
             ),
+            |(args, _)| args,
         ),
     )
 }
 
-fn non_cmd_arg(input: &str) -> IResult<&str, String, ParserError<'_>> {
+fn arg_exclude_cmd(input: &str) -> IResult<&str, String, ParserError<'_>> {
     context(
         "arg_non_cmd",
         map(verify(arg, |s: &String| cmd_token(s).is_err()), |s| {
@@ -96,7 +99,7 @@ pub(in crate::parse) fn cmd_token(input: &str) -> IResult<&str, &str, ParserErro
 /// 按照类PosixShell的规则解析单个参数
 ///
 /// *参考：* https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html?spm=a2ty_o01.29997173.0.0.488051715w53V1#tag_18_02_02
-fn arg(input: &str) -> IResult<&str, String, ParserError<'_>> {
+pub(in crate::parse) fn arg(input: &str) -> IResult<&str, String, ParserError<'_>> {
     fold_many1(
         alt((
             map(normal_part, |string| Cow::Owned(string)),
@@ -232,24 +235,24 @@ mod tests {
 
     #[test]
     fn test_arg_non_cmd() {
-        assert_eq!(non_cmd_arg("arg"), Ok(("", "arg".to_string())));
-        assert_eq!(non_cmd_arg("arg1 arg2"), Ok((" arg2", "arg1".to_string())));
-        assert!(non_cmd_arg(":arg1 arg2").is_err());
-        assert_eq!(non_cmd_arg("::arg1 arg2"), Ok((" arg2", ":arg1".to_string())));
-        assert_eq!(non_cmd_arg("'::arg1 arg2'"), Ok(("", ":arg1 arg2".to_string())));
+        assert_eq!(arg_exclude_cmd("arg"), Ok(("", "arg".to_string())));
+        assert_eq!(arg_exclude_cmd("arg1 arg2"), Ok((" arg2", "arg1".to_string())));
+        assert!(arg_exclude_cmd(":arg1 arg2").is_err());
+        assert_eq!(arg_exclude_cmd("::arg1 arg2"), Ok((" arg2", ":arg1".to_string())));
+        assert_eq!(arg_exclude_cmd("'::arg1 arg2'"), Ok(("", ":arg1 arg2".to_string())));
     }
 
     #[test]
     fn test_cmd_args1() {
-        assert_eq!(cmd_arg1(":cmd").parse(":cmd arg "), Ok(("", vec!["arg".to_string()])));
-        assert_eq!(cmd_arg1(":cmd").parse(":cmd arg :cmd1"), Ok((":cmd1", vec!["arg".to_string()])));
+        assert_eq!(cmd_arg1(":cmd", "arg").parse(":cmd arg "), Ok((" ", vec!["arg".to_string()])));
+        assert_eq!(cmd_arg1(":cmd", "arg").parse(":cmd arg :cmd1"), Ok((" :cmd1", vec!["arg".to_string()])));
         assert_eq!(
-            cmd_arg1(":cmd").parse(":cmd arg1 'arg2' :cmd1"),
-            Ok((":cmd1", vec!["arg1".to_string(), "arg2".to_string()]))
+            cmd_arg1(":cmd", "arg").parse(":cmd arg1 'arg2' :cmd1"),
+            Ok((" :cmd1", vec!["arg1".to_string(), "arg2".to_string()]))
         );
         assert_eq!(
-            cmd_arg1(":cmd").parse(":cmd ::arg1 :::arg2 ::::arg3 :cmd4"),
-            Ok((":cmd4", vec![":arg1".to_string(), "::arg2".to_string(), ":::arg3".to_string()]))
+            cmd_arg1(":cmd", "arg").parse(":cmd ::arg1 :::arg2 ::::arg3 :cmd4"),
+            Ok((" :cmd4", vec![":arg1".to_string(), "::arg2".to_string(), ":::arg3".to_string()]))
         );
     }
 

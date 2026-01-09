@@ -37,7 +37,7 @@ fn parse_file(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Outpu
 
 fn parse_clip(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Output, RpErr> {
     args.next(); // 消耗`clip`
-    let ending = if let Some(crlf) = args.peek() {
+    let postfix = if let Some(crlf) = args.peek() {
         if crlf.eq_ignore_ascii_case("crlf") {
             args.next(); // 消耗`crlf`
             Some(true)
@@ -50,7 +50,7 @@ fn parse_clip(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Outpu
     } else {
         None
     };
-    Ok(Output::new_clip(ending))
+    Ok(Output::new_clip(postfix))
 }
 
 fn parse_std_out(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Output, RpErr> {

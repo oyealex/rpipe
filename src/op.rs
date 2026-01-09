@@ -68,11 +68,11 @@ pub(crate) enum Op {
     Uniq { nocase: bool },
     /// :join       合并数据。
     ///             数值类型元素当作字符串处理，支持按照数量分组合并。
-    ///             :join<[ <delimiter>[ <leading>[ <ending>]]]|[ <delimiter> <leading> <ending> <size>]>
+    ///             :join<[ <delimiter>[ <prefix>[ <postfix>[ <size>]]]]
     ///             <delimiter> 分隔字符串，可选。
-    ///             <leading>   前缀字符串，可选。
+    ///             <prefix>    前缀字符串，可选。
     ///                         指定前缀字符串时必须指定分割字符串。
-    ///             <ending>    后缀字符串，可选。
+    ///             <postfix>   后缀字符串，可选。
     ///                         指定后缀字符串时必须指定分割字符串和前缀字符串。
     ///             <size>      分组大小，必须为正整数，可选，未指定时所有数据为一组。
     ///                         指定分组大小时必须指定分隔字符串、前缀字符串和后缀字符串。
@@ -145,9 +145,9 @@ impl Op {
                 PeekTo::File { file, append, crlf } => {
                     match OpenOptions::new().write(true).truncate(!append).append(append).create(true).open(&file) {
                         Ok(mut writer) => {
-                            let ending = if crlf.unwrap_or(false) { "\r\n" } else { "\n" };
+                            let postfix = if crlf.unwrap_or(false) { "\r\n" } else { "\n" };
                             Ok(pipe.op_inspect(move |item| {
-                                if let Err(err) = write!(writer, "{item}{ending}") {
+                                if let Err(err) = write!(writer, "{item}{postfix}") {
                                     RpErr::WriteToFileErr {
                                         file: file.clone(),
                                         item: item.to_string(),
@@ -246,7 +246,6 @@ impl Op {
             Op::Join { join_info, count } => {
                 if let Some(count) = count {
                     if count > 0 {
-                        println!("{:?}", pipe.size_hint());
                         return Ok(Pipe { iter: Box::new(ChunkJoin { source: pipe, group_size: count, join_info }) });
                     } else {
                         unreachable!("join count must be greater than zero");
@@ -255,9 +254,9 @@ impl Op {
                 Ok(Pipe {
                     iter: Box::new(std::iter::once(Item::String(format!(
                         "{}{}{}",
-                        join_info.leading,
+                        join_info.prefix,
                         pipe.join(&join_info.delimiter),
-                        join_info.ending
+                        join_info.postfix
                     )))),
                 })
             }
@@ -359,8 +358,8 @@ fn replace_with_count_and_nocase<'a>(
 #[derive(Debug, Eq, PartialEq, Default)]
 pub(crate) struct JoinInfo {
     pub(crate) delimiter: String,
-    pub(crate) leading: String,
-    pub(crate) ending: String,
+    pub(crate) prefix: String,
+    pub(crate) postfix: String,
 }
 
 struct ChunkJoin<I> {
@@ -389,9 +388,9 @@ where
         } else {
             Some(Item::String(format!(
                 "{}{}{}",
-                self.join_info.leading,
+                self.join_info.prefix,
                 chunk.join(&self.join_info.delimiter),
-                self.join_info.ending
+                self.join_info.postfix
             )))
         }
     }

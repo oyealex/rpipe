@@ -1,5 +1,5 @@
-use crate::op::{Op, PeekTo, SortBy};
-use crate::parse::token::{arg, general_file_info, ParserError};
+use crate::op::{JoinInfo, Op, PeekTo, SortBy};
+use crate::parse::token::{arg, arg_exclude_cmd, general_file_info, ParserError};
 use crate::{Float, Integer};
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
@@ -14,23 +14,38 @@ pub(in crate::parse) type OpsResult<'a> = IResult<&'a str, Vec<Op>, ParserError<
 pub(in crate::parse) type OpResult<'a> = IResult<&'a str, Op, ParserError<'a>>;
 
 pub(in crate::parse) fn parse_ops(input: &str) -> OpsResult<'_> {
-    context("Op", many0(alt((parse_peek, parse_upper, parse_lower, parse_case, parse_replace, parse_uniq, parse_sort))))
-        .parse(input)
+    context(
+        "Op",
+        many0(alt((
+            parse_peek,
+            parse_upper,
+            parse_lower,
+            parse_case,
+            parse_replace,
+            parse_uniq,
+            parse_join,
+            parse_sort,
+        ))),
+    )
+    .parse(input)
 }
 
 fn parse_peek(input: &str) -> OpResult<'_> {
     context(
         "Op::Peek",
         map(
-            preceded(
-                (tag_no_case(":peek"), space1), // 丢弃命令和空格
-                opt(general_file_info(true)),   // 可选文件信息
+            terminated(
+                preceded(
+                    tag_no_case(":peek"),                           // 丢弃命令
+                    opt(preceded(space1, general_file_info(true))), // 可选文件信息
+                ),
+                space1, // 结尾空格
             ),
             |file_info| match file_info {
-                Some((file, append_opt, ending_opt)) => Op::new_peek(PeekTo::File {
+                Some((file, append_opt, postfix_opt)) => Op::new_peek(PeekTo::File {
                     file,
                     append: append_opt.is_some(),
-                    crlf: ending_opt.map(|s| s.eq_ignore_ascii_case("crlf")),
+                    crlf: postfix_opt.map(|s| s.eq_ignore_ascii_case("crlf")),
                 }),
                 None => Op::new_peek(PeekTo::StdOut),
             },
@@ -56,27 +71,19 @@ fn parse_replace(input: &str) -> OpResult<'_> {
         "Op::Replace",
         map(
             preceded(
-                (tag_no_case(":replace"), space1), // 丢弃：命令+空格
+                tag_no_case(":replace"), // 丢弃：命令+空格
                 terminated(
-                    // 兼容:
-                    //  from to
-                    //  from to 10
-                    //  from to 10 nocase
-                    //  from to    nocase
                     (
-                        arg, // 被替换文本
-                        preceded(
-                            space1,
-                            (
-                                arg,                                          // 替换为文本
-                                opt(preceded(space1, usize)),                 // 替换次数
-                                opt(preceded(space1, tag_no_case("nocase"))), // 忽略大小写
-                            ),
+                        preceded(space1, arg), // 被替换文本
+                        (
+                            preceded(space1, arg),                        // 替换为文本
+                            opt(preceded(space1, usize)),                 // 替换次数
+                            opt(preceded(space1, tag_no_case("nocase"))), // 忽略大小写
                         ),
                     ),
-                    space1,
+                    space1, // 丢弃：结尾空格
                 ),
-            ), // 丢弃：结尾空格
+            ),
             |(from, (to, count_opt, nocase_opt))| Op::new_replace(from, to, count_opt, nocase_opt.is_some()),
         ),
     )
@@ -90,9 +97,54 @@ fn parse_uniq(input: &str) -> OpResult<'_> {
             delimited(
                 tag_no_case(":uniq"),                         // 丢弃：命令
                 opt(preceded(space1, tag_no_case("nocase"))), // 可选：空格+nocase选项
-                space1,
-            ), // 丢弃：结尾空格
+                space1,                                       // 丢弃：结尾空格
+            ),
             |nocase_opt| Op::new_uniq(nocase_opt.is_some()),
+        ),
+    )
+    .parse(input)
+}
+
+fn parse_join(input: &str) -> OpResult<'_> {
+    context(
+        "Op::Join",
+        map(
+            terminated(
+                preceded(
+                    tag_no_case(":join"),
+                    opt((
+                        context("Op::Join::<delimiter>", preceded(space1, arg_exclude_cmd)), // 分隔符
+                        opt((
+                            context("Op::Join::<prefix>", preceded(space1, arg_exclude_cmd)), // 前缀
+                            opt((
+                                context("Op::Join::<postfix>", preceded(space1, arg_exclude_cmd)), // 后缀
+                                opt(context("Op::Join::<size>", preceded(space1, verify(usize, |s| *s > 0)))), // 分组大小
+                            )),
+                        )),
+                    )),
+                ),
+                context("Op::Join::ending_space1", space1),
+            ),
+            |delimiter_opt| {
+                let (join_info, count) = if let Some((delimiter, prefix_opt)) = delimiter_opt {
+                    if let Some((prefix, postfix_opt)) = prefix_opt {
+                        if let Some((postfix, size_opt)) = postfix_opt {
+                            if let Some(size) = size_opt {
+                                (JoinInfo { delimiter, prefix, postfix }, Some(size))
+                            } else {
+                                (JoinInfo { delimiter, prefix, postfix }, None)
+                            }
+                        } else {
+                            (JoinInfo { delimiter, prefix, postfix: String::new() }, None)
+                        }
+                    } else {
+                        (JoinInfo { delimiter, prefix: String::new(), postfix: String::new() }, None)
+                    }
+                } else {
+                    (JoinInfo::default(), None)
+                };
+                Op::new_join(join_info, count)
+            },
         ),
     )
     .parse(input)
@@ -219,27 +271,28 @@ mod tests {
     #[test]
     fn test_parse_peek() {
         assert_eq!(parse_peek(":peek "), Ok(("", Op::new_peek(PeekTo::StdOut))));
-        assert_eq!(parse_peek(":peek :abc"), Ok((":abc", Op::new_peek(PeekTo::StdOut))));
+        assert_eq!(parse_peek(":peek :abc "), Ok((":abc ", Op::new_peek(PeekTo::StdOut))));
         assert_eq!(
-            parse_peek(":peek out.txt"),
+            parse_peek(":peek out.txt "),
             Ok(("", Op::new_peek(PeekTo::File { file: "out.txt".to_string(), append: false, crlf: None })))
         );
         assert_eq!(
-            parse_peek(":peek out.txt append"),
+            parse_peek(":peek out.txt append "),
             Ok(("", Op::new_peek(PeekTo::File { file: "out.txt".to_string(), append: true, crlf: None })))
         );
         assert_eq!(
-            parse_peek(":peek out.txt append crlf"),
+            parse_peek(":peek out.txt append crlf "),
             Ok(("", Op::new_peek(PeekTo::File { file: "out.txt".to_string(), append: true, crlf: Some(true) })))
         );
         assert_eq!(
-            parse_peek(":peek out.txt crlf"),
+            parse_peek(":peek out.txt crlf "),
             Ok(("", Op::new_peek(PeekTo::File { file: "out.txt".to_string(), append: false, crlf: Some(true) })))
         );
         assert_eq!(
             parse_peek(r#":peek "out .txt" "#),
-            Ok((" ", Op::new_peek(PeekTo::File { file: "out .txt".to_string(), append: false, crlf: None })))
+            Ok(("", Op::new_peek(PeekTo::File { file: "out .txt".to_string(), append: false, crlf: None })))
         );
+        assert_eq!(parse_peek(":peek :replace crlf "), Ok((":replace crlf ", Op::new_peek(PeekTo::StdOut))));
     }
 
     #[test]
