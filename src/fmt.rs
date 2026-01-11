@@ -15,6 +15,18 @@ impl From<&str> for FmtArg {
     }
 }
 
+impl From<&String> for FmtArg {
+    fn from(value: &String) -> Self {
+        FmtArg::String(value.to_owned())
+    }
+}
+
+impl From<String> for FmtArg {
+    fn from(value: String) -> Self {
+        FmtArg::String(value)
+    }
+}
+
 impl From<Integer> for FmtArg {
     fn from(value: Integer) -> Self {
         FmtArg::Integer(value)

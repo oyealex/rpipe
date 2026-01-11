@@ -1,6 +1,5 @@
 use crate::config::{is_nocase, Config};
 use crate::err::RpErr;
-use crate::input::Item;
 use crate::pipe::Pipe;
 use crate::{Float, Integer, PipeRes};
 use cmd_help::CmdHelp;
@@ -69,24 +68,22 @@ pub(crate) enum Op {
     /// :join       合并数据。
     ///             数值类型元素当作字符串处理，支持按照数量分组合并。
     ///             :join<[ <delimiter>[ <prefix>[ <postfix>[ <size>]]]]
-    ///             <delimiter> 分隔字符串，可选。
-    ///             <prefix>    前缀字符串，可选。
-    ///                         指定前缀字符串时必须指定分割字符串。
-    ///             <postfix>   后缀字符串，可选。
-    ///                         指定后缀字符串时必须指定分割字符串和前缀字符串。
-    ///             <size>      分组大小，必须为正整数，可选，未指定时所有数据为一组。
-    ///                         指定分组大小时必须指定分隔字符串、前缀字符串和后缀字符串。
+    ///                 <delimiter> 分隔字符串，可选。
+    ///                 <prefix>    前缀字符串，可选。
+    ///                             指定前缀字符串时必须指定分割字符串。
+    ///                 <postfix>   后缀字符串，可选。
+    ///                             指定后缀字符串时必须指定分割字符串和前缀字符串。
+    ///                 <size>      分组大小，必须为正整数，可选，未指定时所有数据为一组。
+    ///                             指定分组大小时必须指定分隔字符串、前缀字符串和后缀字符串。
     ///             例如：
     ///                 :join ,
     ///                 :join , [ ]
     ///                 :join , [ ] 3
     Join { join_info: JoinInfo, count: Option<usize> },
-    // /// 丢弃：
-    // /// ```
-    // /// :drop
-    // /// ```
-    // Drop,
-    // /* **************************************** 增加 **************************************** */
+    /// :drop       丢弃数据。
+    ///             :drop[ len <lower>][val ][ reg<reg_exp>]
+    Drop,
+    /* **************************************** 增加 **************************************** */
     /* **************************************** 调整位置 **************************************** */
     /// :sort       排序。
     ///             :sort[ num [<default>]][ nocase][ desc][ random]
@@ -161,68 +158,47 @@ impl Op {
                     }
                 }
             },
-            Op::Upper => Ok(pipe.op_map(|mut item| match &mut item {
+            Op::Upper => Ok(pipe.op_map(|mut item|
                 // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
-                Item::String(string) => {
-                    if string.chars().all(|c| c.is_ascii_uppercase()) {
-                        item
-                    } else {
-                        string.make_ascii_uppercase();
-                        item
-                    }
+                if item.chars().all(|c| c.is_ascii_uppercase()) {
+                    item
+                } else {
+                    item.make_ascii_uppercase();
+                    item
                 }
-                Item::Integer(_) => item,
-            })),
-            Op::Lower => Ok(pipe.op_map(|mut item| match &mut item {
+            )),
+            Op::Lower => Ok(pipe.op_map(|mut item|
                 // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
-                Item::String(string) => {
-                    if string.chars().all(|c| c.is_ascii_lowercase()) {
-                        item
-                    } else {
-                        string.make_ascii_lowercase();
-                        item
-                    }
+                if item.chars().all(|c| c.is_ascii_lowercase()) {
+                    item
+                } else {
+                    item.make_ascii_lowercase();
+                    item
                 }
-                Item::Integer(_) => item,
-            })),
+            )),
             Op::Case => {
-                Ok(pipe.op_map(|mut item| match &mut item {
-                    Item::String(string) => {
-                        // 只修改ASCII字母（范围A-Z/a-z），而ASCII字符在UTF-8中就是单字节，
-                        // 且切换大小写后仍是合法ASCII（从而合法UTF-8）。
-                        for b in unsafe { string.as_bytes_mut() } {
-                            match b {
-                                b'A'..=b'Z' => *b += b'a' - b'A',
-                                b'a'..=b'z' => *b -= b'a' - b'A',
-                                _ => {}
-                            }
+                Ok(pipe.op_map(|mut item| {
+                    // 只修改ASCII字母（范围A-Z/a-z），而ASCII字符在UTF-8中就是单字节，
+                    // 且切换大小写后仍是合法ASCII（从而合法UTF-8）。
+                    for b in unsafe { item.as_bytes_mut() } {
+                        match b {
+                            b'A'..=b'Z' => *b += b'a' - b'A',
+                            b'a'..=b'z' => *b -= b'a' - b'A',
+                            _ => {}
                         }
-                        item
                     }
-                    Item::Integer(_) => item,
+                    item
                 }))
             }
             Op::Replace { from, to, count, nocase } => {
                 if count == Some(0) {
                     Ok(pipe)
                 } else {
-                    Ok(pipe.op_map(move |item| match &item {
-                        Item::String(string) => {
-                            let cow =
-                                replace_with_count_and_nocase(string, &*from, &*to, count, is_nocase(nocase, configs));
-                            match cow {
-                                Cow::Borrowed(_) => item,
-                                Cow::Owned(string) => Item::String(string),
-                            }
-                        }
-                        Item::Integer(_) => {
-                            let string = item.to_string();
-                            let cow =
-                                replace_with_count_and_nocase(&string, &*from, &*to, count, is_nocase(nocase, configs));
-                            match cow {
-                                Cow::Borrowed(_) => item,
-                                Cow::Owned(string) => Item::String(string),
-                            }
+                    Ok(pipe.op_map(move |item| {
+                        let cow = replace_with_count_and_nocase(&item, &*from, &*to, count, is_nocase(nocase, configs));
+                        match cow {
+                            Cow::Borrowed(_) => item,
+                            Cow::Owned(string) => string,
                         }
                     }))
                 }
@@ -230,16 +206,7 @@ impl Op {
             Op::Uniq { nocase } => {
                 let mut seen = HashSet::new();
                 Ok(pipe.op_filter(move |item| {
-                    let key = match item {
-                        Item::String(s) => {
-                            if is_nocase(nocase, configs) {
-                                s.to_ascii_uppercase()
-                            } else {
-                                s.clone()
-                            }
-                        }
-                        Item::Integer(_) => item.to_string(),
-                    };
+                    let key = if is_nocase(nocase, configs) { item.to_ascii_uppercase() } else { item.clone() };
                     seen.insert(key) // 返回 true 表示保留（首次出现）
                 }))
             }
@@ -252,18 +219,21 @@ impl Op {
                     }
                 }
                 Ok(Pipe {
-                    iter: Box::new(std::iter::once(Item::String(format!(
+                    iter: Box::new(std::iter::once(format!(
                         "{}{}{}",
                         join_info.prefix,
                         pipe.join(&join_info.delimiter),
                         join_info.postfix
-                    )))),
+                    ))),
                 })
+            }
+            Op::Drop => {
+                todo!()
             }
             Op::Sort { sort_by, desc } => match sort_by {
                 SortBy::Num(def_integer, def_float) => {
                     if let Some(def) = def_integer {
-                        let key_fn = move |item: &Item| Integer::try_from(item).unwrap_or(def);
+                        let key_fn = move |item: &String| item.parse().unwrap_or(def);
                         let new_pipe = if desc {
                             pipe.sorted_by_key(|item| Reverse(key_fn(item)))
                         } else {
@@ -272,7 +242,7 @@ impl Op {
                         return Ok(Pipe { iter: Box::new(new_pipe) });
                     }
                     let def = def_float.unwrap_or(Float::MAX); // 默认按照浮点最大值
-                    let key_fn = move |item: &Item| OrderedFloat(Float::try_from(item).unwrap_or(def));
+                    let key_fn = move |item: &String| OrderedFloat(item.parse().unwrap_or(def));
                     let new_pipe = if desc {
                         pipe.sorted_by_key(|item| Reverse(key_fn(item)))
                     } else {
@@ -370,9 +340,9 @@ struct ChunkJoin<I> {
 
 impl<I> Iterator for ChunkJoin<I>
 where
-    I: Iterator<Item = Item>,
+    I: Iterator<Item = String>,
 {
-    type Item = Item;
+    type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut chunk = Vec::with_capacity(self.group_size);
@@ -386,12 +356,12 @@ where
         if chunk.is_empty() {
             None
         } else {
-            Some(Item::String(format!(
+            Some(format!(
                 "{}{}{}",
                 self.join_info.prefix,
                 chunk.join(&self.join_info.delimiter),
                 self.join_info.postfix
-            )))
+            ))
         }
     }
 }
