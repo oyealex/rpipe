@@ -15,13 +15,14 @@ use nom::bytes::complete::{escaped, take_while1};
 use nom::bytes::complete::{tag_no_case, take_while};
 use nom::character::complete::{anychar, char};
 use nom::character::complete::{none_of, space1};
-use nom::combinator::{eof, map, opt, peek, recognize, verify};
+use nom::combinator::{eof, map, opt, peek, recognize, value, verify};
 use nom::error::context;
 use nom::multi::{fold_many1, many_till};
-use nom::sequence::{delimited, preceded};
+use nom::sequence::{delimited, preceded, terminated};
 use nom::{ExtendInto, IResult, Parser};
 use nom_language::error::VerboseError;
 use std::borrow::Cow;
+use std::str::FromStr;
 
 /// 解析错误的类型
 pub(crate) type ParserError<'a> = VerboseError<&'a str>;
@@ -30,6 +31,7 @@ use crate::config::Config;
 use crate::parse::token::config::parse_configs;
 /// 重新导出解析整数的函数
 pub(crate) use nom::character::complete::i64 as parse_integer;
+pub(crate) use nom::number::complete::double as parse_float;
 
 // TODO 2026-01-10 02:24 完善上下文
 #[allow(unused)]
@@ -99,6 +101,20 @@ fn cmd_token(input: &str) -> IResult<&str, &str, ParserError<'_>> {
 /// 判断是否整个token为命令格式。
 pub(in crate::parse) fn whole_cmd_token(input: &str) -> IResult<&str, &str, ParserError<'_>> {
     recognize((cmd_token, eof)).parse(input)
+}
+
+pub(in crate::parse) fn parse_arg_as<T>(input: &str) -> IResult<&str, T, ParserError<'_>>
+where
+    T: FromStr,
+    <T as FromStr>::Err: std::fmt::Debug,
+{
+    map(verify(arg, |s: &String| s.parse::<T>().is_ok()), |s| s.parse::<T>().unwrap()).parse(input)
+}
+
+pub(in crate::parse) fn parse_2_choice<'a>(
+    primary: &'static str, second: &'static str,
+) -> impl Parser<&'a str, Output = bool, Error = ParserError<'a>> {
+    alt((value(true, tag_no_case(primary)), value(false, tag_no_case(second))))
 }
 
 /// 按照类PosixShell的规则解析单个参数
@@ -172,12 +188,12 @@ fn normal_escape(c: char) -> Option<&'static str> {
     }
 }
 
-pub(in crate::parse) fn escape_string(input: &str) -> Option<String> {
-    if let Ok((_, result)) = escaped_trans(none_of("\\"), '\\', normal_escape).parse(input) {
-        Some(result)
-    } else {
-        None
-    }
+pub(in crate::parse) fn escape_string(input: &str) -> String {
+    // 预期不应该失败
+    terminated(escaped_trans(none_of("\\"), '\\', normal_escape), eof)
+        .parse(input)
+        .expect("escape_string should not fail")
+        .1
 }
 
 /// `nom::bytes::complete::escaped_transform`的优化版本，escaped_transform处理不在转义范围内的反斜杠字符时如果需要
@@ -192,7 +208,7 @@ where
 {
     map(escaped(normal, control_char, anychar), move |s| {
         let mut result = String::with_capacity(s.len());
-        let mut chars = s.chars().peekable();
+        let mut chars = s.chars();
         while let Some(c) = chars.next() {
             if c == '\\' {
                 match chars.next() {
@@ -264,8 +280,10 @@ mod tests {
 
     #[test]
     fn test_escape_string() {
-        assert_eq!(escape_string("''"), Some("''".to_string()));
-        assert_eq!(escape_string("abc"), Some("abc".to_string()));
-        assert_eq!(escape_string("\\n abc"), Some("\n abc".to_string()));
+        assert_eq!(escape_string(""), "");
+        assert_eq!(escape_string("''"), "''");
+        assert_eq!(escape_string("abc"), "abc");
+        assert_eq!(escape_string("\\n abc"), "\n abc");
+        assert_eq!(escape_string("\\m abc"), "\\m abc");
     }
 }

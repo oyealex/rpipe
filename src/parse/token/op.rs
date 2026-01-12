@@ -1,15 +1,18 @@
-use crate::condition::Cond;
+use crate::condition::{Cond, CondRangeArg, CondSpecArg};
 use crate::op::{JoinInfo, Op, PeekTo, SortBy};
-use crate::parse::token::{arg, arg_exclude_cmd, general_file_info, ParserError};
+use crate::parse::token::{
+    arg, arg_exclude_cmd, general_file_info, parse_2_choice, parse_arg_as, parse_float, parse_integer, ParserError,
+};
 use crate::{Float, Integer};
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
-use nom::character::complete::{space1, usize};
-use nom::combinator::{map, opt, verify};
+use nom::character::complete::{char, space1, usize};
+use nom::combinator::{eof, map, opt, peek, value, verify};
 use nom::error::context;
 use nom::multi::many0;
 use nom::sequence::{delimited, preceded, terminated};
 use nom::{IResult, Parser};
+use std::str::FromStr;
 
 pub(in crate::parse) type OpsResult<'a> = IResult<&'a str, Vec<Op>, ParserError<'a>>;
 pub(in crate::parse) type OpResult<'a> = IResult<&'a str, Op, ParserError<'a>>;
@@ -119,7 +122,7 @@ fn parse_join(input: &str) -> OpResult<'_> {
                             context("Op::Join::<prefix>", preceded(space1, arg_exclude_cmd)), // 前缀
                             opt((
                                 context("Op::Join::<postfix>", preceded(space1, arg_exclude_cmd)), // 后缀
-                                opt(context("Op::Join::<size>", preceded(space1, verify(usize, |s| *s > 0)))), // 分组大小
+                                opt(context("Op::Join::<batch>", preceded(space1, verify(usize, |s| *s > 0)))), // 分组大小
                             )),
                         )),
                     )),
@@ -127,7 +130,7 @@ fn parse_join(input: &str) -> OpResult<'_> {
                 context("Op::Join::ending_space1", space1),
             ),
             |delimiter_opt| {
-                let (join_info, count) = if let Some((delimiter, prefix_opt)) = delimiter_opt {
+                let (join_info, batch) = if let Some((delimiter, prefix_opt)) = delimiter_opt {
                     if let Some((prefix, postfix_opt)) = prefix_opt {
                         if let Some((postfix, size_opt)) = postfix_opt {
                             if let Some(size) = size_opt {
@@ -144,7 +147,7 @@ fn parse_join(input: &str) -> OpResult<'_> {
                 } else {
                     (JoinInfo::default(), None)
                 };
-                Op::new_join(join_info, count)
+                Op::new_join(join_info, batch)
             },
         ),
     )
@@ -167,24 +170,24 @@ fn parse_sort(input: &str) -> OpResult<'_> {
                                     preceded(
                                         space1,
                                         (
-                                            verify(arg, |s: &String| s.parse::<Integer>().is_ok()), // 默认整数值
-                                            opt((space1, tag_no_case("desc"))),                     // 可选逆序
+                                            parse_arg_as::<Integer>,            // 默认整数值
+                                            opt((space1, tag_no_case("desc"))), // 可选逆序
                                         ),
                                     ),
-                                    |(num, desc): (String, Option<_>)| {
-                                        (SortBy::Num(num.parse::<Integer>().ok(), None), desc.is_some())
+                                    |(integer, desc): (Integer, Option<_>)| {
+                                        (SortBy::Num(Some(integer), None), desc.is_some())
                                     },
                                 ),
                                 map(
                                     preceded(
                                         space1,
                                         (
-                                            verify(arg, |s: &String| s.parse::<Float>().is_ok()), // 默认浮点值
-                                            opt((space1, tag_no_case("desc"))),                   // 可选逆序
+                                            parse_arg_as::<Float>,              // 默认浮点值
+                                            opt((space1, tag_no_case("desc"))), // 可选逆序
                                         ),
                                     ),
-                                    |(num, desc): (String, Option<_>)| {
-                                        (SortBy::Num(None, num.parse::<Float>().ok()), desc.is_some())
+                                    |(float, desc): (Float, Option<_>)| {
+                                        (SortBy::Num(None, Some(float)), desc.is_some())
                                     },
                                 ),
                                 map(opt((space1, tag_no_case("desc"))), |desc| {
@@ -208,8 +211,126 @@ fn parse_sort(input: &str) -> OpResult<'_> {
     .parse(input)
 }
 
-pub(in crate::parse) fn parse_condition_text(input: &str) -> IResult<&str, Cond, ParserError<'_>> {
-    todo!()
+pub(in crate::parse) fn parse_cond(input: &str) -> IResult<&str, Cond, ParserError<'_>> {
+    terminated(
+        alt((
+            context("Cond::TextLenRange", map(parse_cond_range("len", usize), |arg| Cond::TextLenRange(arg))),
+            context("Cond::TextLenSpec", map(parse_cond_spec("len", usize), |arg| Cond::TextLenSpec(arg))),
+            context("Cond::IntegerRange", map(parse_cond_range("num", parse_integer), |arg| Cond::IntegerRange(arg))),
+            context("Cond::IntegerSpec", map(parse_cond_spec("num", parse_integer), |arg| Cond::IntegerSpec(arg))),
+            context("Cond::FloatRange", map(parse_cond_range("num", parse_float), |arg| Cond::FloatRange(arg))),
+            context("Cond::FloatSpec", map(parse_cond_spec("num", parse_float), |arg| Cond::FloatSpec(arg))),
+            parse_cond_number,
+            parse_cond_text_all_case,
+            parse_cond_text_empty_or_blank,
+            parse_cond_reg_match,
+        )),
+        space1,
+    )
+    .parse(input)
+}
+
+pub(in crate::parse) fn parse_cond_range<'a, T, F>(
+    tag: &'static str, range_arg: F,
+) -> impl Parser<&'a str, Output = CondRangeArg<T>, Error = ParserError<'a>>
+where
+    F: Parser<&'a str, Output = T, Error = ParserError<'a>> + Clone,
+{
+    context(
+        "CondRangeArg",
+        map(
+            preceded(
+                tag_no_case(tag),
+                preceded(
+                    space1,
+                    verify(
+                        (
+                            context("CondRangeArg::[!]", opt(char('!'))),
+                            context("CondRangeArg::[<min>]", opt(range_arg.clone())),
+                            char(','),
+                            context("CondRangeArg::[<max>]", terminated(opt(range_arg), peek(alt((space1, eof))))),
+                        ),
+                        |(_, min, _, max)| min.is_some() || max.is_some(),
+                    ),
+                ),
+            ),
+            |(not, min, _, max)| CondRangeArg::new(min, max, not.is_some()),
+        ),
+    )
+}
+
+pub(in crate::parse) fn parse_cond_spec<'a, T, F>(
+    tag: &'static str, spec_arg: F,
+) -> impl Parser<&'a str, Output = CondSpecArg<T>, Error = ParserError<'a>>
+where
+    F: Parser<&'a str, Output = T, Error = ParserError<'a>>,
+{
+    context(
+        "CondSpecArg",
+        map(
+            preceded(
+                tag_no_case(tag),
+                preceded(
+                    space1,
+                    (
+                        context("CondSpecArg::[!]", opt(char('!'))),
+                        char('='),
+                        context("CondSpecArg::<spec>", terminated(spec_arg, peek(alt((space1, eof))))),
+                    ),
+                ),
+            ),
+            |(not, _, spec)| CondSpecArg::new(spec, not.is_some()),
+        ),
+    )
+}
+
+pub(in crate::parse) fn parse_cond_number(input: &str) -> IResult<&str, Cond, ParserError<'_>> {
+    context(
+        "Cond::Number",
+        map(
+            preceded(
+                tag_no_case("num"),
+                opt(preceded(
+                    space1,
+                    (
+                        opt(char('!')),
+                        opt(alt((value(true, tag_no_case("integer")), value(false, tag_no_case("float"))))),
+                    ),
+                )),
+            ),
+            |exp: Option<(Option<char>, Option<bool>)>| {
+                if let Some((not_opt, num_type)) = exp {
+                    Cond::new_number(num_type, not_opt.is_some())
+                } else {
+                    Cond::new_number(None, false)
+                }
+            },
+        ),
+    )
+    .parse(input)
+}
+
+pub(in crate::parse) fn parse_cond_text_all_case(input: &str) -> IResult<&str, Cond, ParserError<'_>> {
+    context("Cond::TextAllCase", map(parse_2_choice("upper", "lower"), |is_upper| Cond::new_text_all_case(is_upper)))
+        .parse(input)
+}
+
+pub(in crate::parse) fn parse_cond_text_empty_or_blank(input: &str) -> IResult<&str, Cond, ParserError<'_>> {
+    context(
+        "Cond::TextEmptyOrBlank",
+        map(parse_2_choice("empty", "blank"), |is_upper| Cond::new_text_empty_or_blank(is_upper)),
+    )
+    .parse(input)
+}
+pub(in crate::parse) fn parse_cond_reg_match(input: &str) -> IResult<&str, Cond, ParserError<'_>> {
+    context(
+        "Cond::RegMatch",
+        map(preceded((tag_no_case("reg"), space1), arg), |regex| match Cond::new_reg_match(&regex) {
+            Ok(cond) => cond,
+            Err(rp_err) => rp_err.termination(),
+        }),
+    )
+    .parse(input)
 }
 
 #[cfg(test)]
@@ -317,7 +438,43 @@ mod tests {
         assert_eq!(parse_sort(":sort num -10.5 "), Ok(("", Op::new_sort(SortBy::Num(None, Some(-10.5)), false))));
         assert_eq!(parse_sort(":sort num -10.5 desc "), Ok(("", Op::new_sort(SortBy::Num(None, Some(-10.5)), true))));
         assert_eq!(parse_sort(":sort random "), Ok(("", Op::new_sort(SortBy::Random, false))));
-
         assert_eq!(parse_sort(":sort random desc "), Ok(("desc ", Op::new_sort(SortBy::Random, false))));
+    }
+
+    #[test]
+    fn test_parse_text_len_range() {
+        assert_eq!(parse_cond("len 1,3 "), Ok(("", Cond::new_text_len_range((Some(1), Some(3)), false))));
+        assert_eq!(parse_cond("len ,3 "), Ok(("", Cond::new_text_len_range((None, Some(3)), false))));
+        assert_eq!(parse_cond("len 1, "), Ok(("", Cond::new_text_len_range((Some(1), None), false))));
+        assert_eq!(parse_cond("len !1,3 "), Ok(("", Cond::new_text_len_range((Some(1), Some(3)), true))));
+        assert_eq!(parse_cond("len !,3 "), Ok(("", Cond::new_text_len_range((None, Some(3)), true))));
+        assert_eq!(parse_cond("len !1, "), Ok(("", Cond::new_text_len_range((Some(1), None), true))));
+        assert!(parse_cond("len !, ").is_err());
+        assert!(parse_cond("len , ").is_err());
+        assert!(parse_cond("len 1.2,3.0 ").is_err());
+    }
+
+    #[test]
+    fn test_parse_integer_range() {
+        assert_eq!(parse_cond("num 1,3 "), Ok(("", Cond::new_integer_range((Some(1), Some(3)), false))));
+        assert_eq!(parse_cond("num ,3 "), Ok(("", Cond::new_integer_range((None, Some(3)), false))));
+        assert_eq!(parse_cond("num 1, "), Ok(("", Cond::new_integer_range((Some(1), None), false))));
+        assert_eq!(parse_cond("num !1,3 "), Ok(("", Cond::new_integer_range((Some(1), Some(3)), true))));
+        assert_eq!(parse_cond("num !,3 "), Ok(("", Cond::new_integer_range((None, Some(3)), true))));
+        assert_eq!(parse_cond("num !1, "), Ok(("", Cond::new_integer_range((Some(1), None), true))));
+        assert!(parse_cond("num !, ").is_err());
+        assert!(parse_cond("num , ").is_err());
+    }
+
+    #[test]
+    fn test_parse_float_range() {
+        assert_eq!(parse_cond("num 1.0,3 "), Ok(("", Cond::new_float_range((Some(1.0), Some(3.0)), false))));
+        assert_eq!(parse_cond("num ,3.0 "), Ok(("", Cond::new_float_range((None, Some(3.0)), false))));
+        assert_eq!(parse_cond("num 1.1, "), Ok(("", Cond::new_float_range((Some(1.1), None), false))));
+        assert_eq!(parse_cond("num !1.0,3 "), Ok(("", Cond::new_float_range((Some(1.0), Some(3.0)), true))));
+        assert_eq!(parse_cond("num !,3.0 "), Ok(("", Cond::new_float_range((None, Some(3.0)), true))));
+        assert_eq!(parse_cond("num !1.1, "), Ok(("", Cond::new_float_range((Some(1.1), None), true))));
+        assert!(parse_cond("num !, ").is_err());
+        assert!(parse_cond("num , ").is_err());
     }
 }

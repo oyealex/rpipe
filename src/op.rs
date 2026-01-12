@@ -30,11 +30,17 @@ pub(crate) enum SortBy {
 pub(crate) enum Op {
     /* **************************************** 访问 **************************************** */
     /// :peek       打印每个值到标准输出或文件。
-    ///             :peek[ <file_name>]
+    ///             :peek[ <file_name>][ append][ lf|crlf]
     ///                 <file_name> 文件路径，可选。
+    ///                 append      追加输出而不是覆盖，可选，如果未指定则覆盖源文件。
+    ///                 lf|crlf     指定换行符为'LF'或'CRLF'，可选，如果未指定则默认使用'LF'。
     ///             例如：
     ///                 :peek
     ///                 :peek file.txt
+    ///                 :peek file.txt append
+    ///                 :peek file.txt lf
+    ///                 :peek file.txt crlf
+    ///                 :peek file.txt append crlf
     Peek(PeekTo),
     /* **************************************** 转换 **************************************** */
     /// :upper      转为ASCII大写。
@@ -47,7 +53,7 @@ pub(crate) enum Op {
     ///             :replace <from> <to>[ <count>][ nocase]
     ///                 <from>  待替换的字符串，必选。
     ///                 <to>    待替换为的字符串，必选。
-    ///                 <count> 对每个元素需要替换的次数，不能为负数，可选，未指定则替换所有。
+    ///                 <count> 对每个元素需要替换的次数，必须为正整数，可选，未指定则替换所有。
     ///                 nocase  替换时忽略大小写，可选，未指定时不忽略大小写。
     ///             例如：
     ///                 :replace abc xyz
@@ -64,19 +70,19 @@ pub(crate) enum Op {
     ///                 :uniq nocase
     Uniq { nocase: bool },
     /// :join       合并数据。
-    ///             :join<[ <delimiter>[ <prefix>[ <postfix>[ <size>]]]]
+    ///             :join<[ <delimiter>[ <prefix>[ <postfix>[ <batch>]]]]
     ///                 <delimiter> 分隔字符串，可选。
     ///                 <prefix>    前缀字符串，可选。
     ///                             指定前缀字符串时必须指定分割字符串。
     ///                 <postfix>   后缀字符串，可选。
     ///                             指定后缀字符串时必须指定分割字符串和前缀字符串。
-    ///                 <size>      分组大小，必须为正整数，可选，未指定时所有数据为一组。
+    ///                 <batch>     分组大小，必须为正整数，可选，未指定时所有数据为一组。
     ///                             指定分组大小时必须指定分隔字符串、前缀字符串和后缀字符串。
     ///             例如：
     ///                 :join ,
     ///                 :join , [ ]
     ///                 :join , [ ] 3
-    Join { join_info: JoinInfo, count: Option<usize> },
+    Join { join_info: JoinInfo, batch: Option<usize> },
     /// :drop       根据指定条件选择数据丢弃。
     ///             :drop <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
@@ -127,7 +133,7 @@ impl Op {
         Op::Uniq { nocase }
     }
     pub(crate) fn new_join(join_info: JoinInfo, count: Option<usize>) -> Op {
-        Op::Join { join_info, count }
+        Op::Join { join_info, batch: count }
     }
     pub(crate) fn new_sort(sort_by: SortBy, desc: bool) -> Op {
         Op::Sort { sort_by, desc }
@@ -208,7 +214,7 @@ impl Op {
                     seen.insert(key) // 返回 true 表示保留（首次出现）
                 }))
             }
-            Op::Join { join_info, count } => {
+            Op::Join { join_info, batch: count } => {
                 if let Some(count) = count {
                     if count > 0 {
                         return Ok(Pipe { iter: Box::new(ChunkJoin { source: pipe, group_size: count, join_info }) });

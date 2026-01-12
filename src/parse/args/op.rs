@@ -1,6 +1,8 @@
 use crate::err::RpErr;
 use crate::op::{JoinInfo, Op, PeekTo, SortBy};
-use crate::parse::args::{consume_if, consume_if_some, parse_general_file_info, parse_opt_arg};
+use crate::parse::args::{
+    parse_arg, parse_as, parse_general_file_info, parse_opt_arg, parse_positive_usize, parse_tag_nocase,
+};
 use crate::{Float, Integer};
 use std::iter::Peekable;
 
@@ -59,11 +61,11 @@ fn parse_case(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Optio
 fn parse_replace(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {
     args.next();
     // 被替换字符串必选，直接消耗
-    if let Some(from) = args.next() {
+    if let Some(from) = parse_arg(args) {
         // 替换目标字符串必选，直接消耗
-        if let Some(to) = args.next() {
-            let count_opt = consume_if_some(args, |s| s.parse::<usize>().ok());
-            let nocase = consume_if(args, |s| s.eq_ignore_ascii_case("nocase")).is_some();
+        if let Some(to) = parse_arg(args) {
+            let count_opt = parse_positive_usize(args);
+            let nocase = parse_tag_nocase(args, "nocase");
             Ok(Some(Op::new_replace(from, to, count_opt, nocase)))
         } else {
             Err(RpErr::MissingArg { cmd: ":replace", arg: "to" })
@@ -75,22 +77,16 @@ fn parse_replace(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op
 
 fn parse_uniq(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {
     args.next();
-    let nocase = args.peek().map(|nocase| nocase.eq_ignore_ascii_case("nocase")).unwrap_or(false);
-    if nocase {
-        args.next();
-    }
+    let nocase = parse_tag_nocase(args, "nocase");
     Ok(Some(Op::new_uniq(nocase)))
 }
 
 fn parse_join(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {
     args.next();
-    let (join_info, count) = if let Some(delimiter) = parse_opt_arg(args) {
+    let (join_info, batch) = if let Some(delimiter) = parse_opt_arg(args) {
         if let Some(prefix) = parse_opt_arg(args) {
             if let Some(postfix) = parse_opt_arg(args) {
-                if let Some(size) = args.peek()
-                    && let Ok(size) = size.parse::<usize>()
-                    && size > 0
-                {
+                if let Some(size) = parse_positive_usize(args) {
                     args.next();
                     (JoinInfo { delimiter, prefix, postfix }, Some(size))
                 } else {
@@ -106,7 +102,7 @@ fn parse_join(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Optio
         (JoinInfo::default(), None)
     };
 
-    Ok(Some(Op::new_join(join_info, count)))
+    Ok(Some(Op::new_join(join_info, batch)))
 }
 
 fn parse_sort(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<Op>, RpErr> {
@@ -115,16 +111,10 @@ fn parse_sort(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Optio
         if sort_by.eq_ignore_ascii_case("num") {
             // 按照数值排序
             args.next();
-            if let Some(default) = args.peek() {
-                if let Ok(def_integer) = default.parse::<Integer>() {
-                    args.next();
-                    SortBy::Num(Some(def_integer), None)
-                } else if let Ok(def_float) = default.parse::<Float>() {
-                    args.next();
-                    SortBy::Num(None, Some(def_float))
-                } else {
-                    SortBy::Num(None, None)
-                }
+            if let Some(def_integer) = parse_as::<Integer>(args) {
+                SortBy::Num(Some(def_integer), None)
+            } else if let Some(def_float) = parse_as::<Float>(args) {
+                SortBy::Num(None, Some(def_float))
             } else {
                 SortBy::Num(None, None)
             }

@@ -1,6 +1,6 @@
 use crate::err::RpErr;
 use crate::input::Input;
-use crate::parse::args::{consume_if_some, parse_arg1, parse_opt_arg};
+use crate::parse::args::{parse_positive_usize, parse_arg, parse_arg1, parse_opt_arg};
 use std::iter::Peekable;
 
 pub(in crate::parse::args) fn parse_input(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
@@ -60,8 +60,8 @@ fn parse_gen(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input,
 
 fn parse_repeat(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {
     args.next(); // 消耗命令文本
-    let value = args.next().ok_or(RpErr::MissingArg { cmd: ":repeat", arg: "value" })?;
-    let count = consume_if_some(args, |s| s.parse::<usize>().ok());
+    let value = parse_arg(args).ok_or(RpErr::MissingArg { cmd: ":repeat", arg: "value" })?;
+    let count = parse_positive_usize(args);
     Ok(Input::new_repeat(value, count))
 }
 
