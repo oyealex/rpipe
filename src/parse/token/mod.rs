@@ -1,7 +1,8 @@
 mod config;
-pub mod input;
-pub mod op;
-pub mod output;
+pub(in crate::parse) mod input;
+pub(in crate::parse) mod op;
+pub(in crate::parse) mod output;
+pub(in crate::parse) mod condition;
 
 use crate::err::RpErr;
 use crate::input::Input;
@@ -15,7 +16,7 @@ use nom::bytes::complete::{escaped, take_while1};
 use nom::bytes::complete::{tag_no_case, take_while};
 use nom::character::complete::{anychar, char};
 use nom::character::complete::{none_of, space1};
-use nom::combinator::{eof, map, opt, peek, recognize, value, verify};
+use nom::combinator::{eof, map, map_res, opt, peek, recognize, value, verify};
 use nom::error::context;
 use nom::multi::{fold_many1, many_till};
 use nom::sequence::{delimited, preceded, terminated};
@@ -29,9 +30,22 @@ pub(crate) type ParserError<'a> = VerboseError<&'a str>;
 
 use crate::config::Config;
 use crate::parse::token::config::parse_configs;
+use crate::Num;
 /// 重新导出解析整数的函数
-pub(crate) use nom::character::complete::i64 as parse_integer;
-pub(crate) use nom::number::complete::double as parse_float;
+pub(in crate::parse) use nom::character::complete::i64 as parse_integer;
+pub(in crate::parse) use nom::number::complete::double as parse_float;
+
+pub(in crate::parse) fn parse_num(input: &str) -> IResult<&str, Num, ParserError<'_>> {
+    map_res(
+        recognize(alt((
+            // alt要求所有子解析器返回类型相同，所以使用value转换，最终会在外层完成Num转换。
+            value((), verify(parse_float, |f| f.is_finite())), // 优先匹配浮点数
+            value((), parse_integer),                          // 再匹配整数，如果优先匹配整数，则可能遗漏浮点数字符串
+        ))),
+        |s: &str| s.parse::<Num>(),
+    )
+    .parse(input)
+}
 
 // TODO 2026-01-10 02:24 完善上下文
 #[allow(unused)]

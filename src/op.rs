@@ -1,3 +1,4 @@
+use crate::condition::Cond;
 use crate::config::{is_nocase, Config};
 use crate::err::RpErr;
 use crate::pipe::Pipe;
@@ -83,10 +84,14 @@ pub(crate) enum Op {
     ///                 :join , [ ]
     ///                 :join , [ ] 3
     Join { join_info: JoinInfo, batch: Option<usize> },
-    /// :drop       根据指定条件选择数据丢弃。
+    /// :drop       根据指定条件选择数据丢弃，其他数据保留。
     ///             :drop <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
-    Drop,
+    Drop(Cond),
+    /// :keep       根据指定条件选择数据保留，其他数据丢弃。
+    ///             :keep <condition>
+    ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
+    Keep(Cond),
     /* **************************************** 增加 **************************************** */
     /* **************************************** 调整位置 **************************************** */
     /// :sort       排序。
@@ -231,9 +236,8 @@ impl Op {
                     ))),
                 })
             }
-            Op::Drop => {
-                todo!()
-            }
+            Op::Drop(cond) => Ok(Pipe { iter: Box::new(pipe.filter(move |s| !cond.test(s))) }),
+            Op::Keep(cond) => Ok(Pipe { iter: Box::new(pipe.filter(move |s| cond.test(s))) }),
             Op::Sort { sort_by, desc } => match sort_by {
                 SortBy::Num(def_integer, def_float) => {
                     if let Some(def) = def_integer {

@@ -1,6 +1,6 @@
 use crate::err::RpErr;
 use crate::input::Input;
-use crate::parse::args::{parse_positive_usize, parse_arg, parse_arg1, parse_opt_arg};
+use crate::parse::args::{parse_arg, parse_arg1, parse_opt_arg, parse_positive_usize};
 use std::iter::Peekable;
 
 pub(in crate::parse::args) fn parse_input(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Input, RpErr> {

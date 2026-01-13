@@ -3,7 +3,7 @@ use std::process::{ExitCode, Termination};
 use thiserror::Error;
 
 #[derive(Error, Debug, Eq, PartialEq, CmdHelp)]
-pub(crate) enum RpErr {
+pub enum RpErr {
     /// 1       解析配置Token失败。
     #[error("[ParseConfigTokenErr] Invalid args: {0}")]
     ParseConfigTokenErr(String),
@@ -60,9 +60,13 @@ pub(crate) enum RpErr {
     #[error("[FormatStringErr] Format string by {fmt} with `{value}` error at: {err_pos}")]
     FormatStringErr { fmt: String, value: String, err_pos: usize },
 
-    /// 15      无效的正则表达式。
-    #[error("[ParseRegexErr] Parse regex {reg:?} err: {err}")]
-    ParseRegexErr { reg: String, err: String},
+    /// 15      解析正则表达式失败。
+    #[error("[ParseRegexErr] Parse regex from {reg:?} err: {err}")]
+    ParseRegexErr { reg: String, err: String },
+
+    /// 16      解析数值失败。
+    #[error("[ParseRegexErr] Parse number from {0:?} err")]
+    ParseNumErr(String),
 }
 
 impl Termination for RpErr {
@@ -97,6 +101,7 @@ impl RpErr {
             RpErr::WriteToFileErr { .. } => code.next().unwrap(),
             RpErr::FormatStringErr { .. } => code.next().unwrap(),
             RpErr::ParseRegexErr { .. } => code.next().unwrap(),
+            RpErr::ParseNumErr { .. } => code.next().unwrap(),
         }
     }
 }
