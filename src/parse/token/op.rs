@@ -1,8 +1,6 @@
 use crate::op::{JoinInfo, Op, PeekTo, SortBy};
 use crate::parse::token::condition::parse_cond;
-use crate::parse::token::{
-    arg, arg_exclude_cmd, general_file_info, parse_arg_as, ParserError,
-};
+use crate::parse::token::{arg, arg_exclude_cmd, general_file_info, parse_arg_as, ParserError};
 use crate::{Float, Integer};
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
@@ -27,8 +25,10 @@ pub(in crate::parse) fn parse_ops(input: &str) -> OpsResult<'_> {
             parse_replace,
             parse_uniq,
             parse_join,
+            parse_drop_while,
+            parse_take_while,
             parse_drop,
-            parse_keep,
+            parse_take,
             parse_sort,
         ))),
     )
@@ -155,12 +155,32 @@ fn parse_join(input: &str) -> OpResult<'_> {
     .parse(input)
 }
 
+fn parse_drop_while(input: &str) -> OpResult<'_> {
+    context(
+        "Op::DropWhile",
+        map(preceded((tag_no_case(":drop"), space1, tag_no_case("while"), space1), parse_cond), |cond| {
+            Op::DropWhile(cond)
+        }),
+    )
+    .parse(input)
+}
+
+fn parse_take_while(input: &str) -> OpResult<'_> {
+    context(
+        "Op::TakeWhile",
+        map(preceded((tag_no_case(":take"), space1, tag_no_case("while"), space1), parse_cond), |cond| {
+            Op::TakeWhile(cond)
+        }),
+    )
+    .parse(input)
+}
+
 fn parse_drop(input: &str) -> OpResult<'_> {
     context("Op::Drop", map(preceded((tag_no_case(":drop"), space1), parse_cond), |cond| Op::Drop(cond))).parse(input)
 }
 
-fn parse_keep(input: &str) -> OpResult<'_> {
-    context("Op::Keep", map(preceded((tag_no_case(":keep"), space1), parse_cond), |cond| Op::Keep(cond))).parse(input)
+fn parse_take(input: &str) -> OpResult<'_> {
+    context("Op::Take", map(preceded((tag_no_case(":take"), space1), parse_cond), |cond| Op::Take(cond))).parse(input)
 }
 
 fn parse_sort(input: &str) -> OpResult<'_> {
@@ -220,10 +240,9 @@ fn parse_sort(input: &str) -> OpResult<'_> {
     .parse(input)
 }
 
-
-
 #[cfg(test)]
 mod tests {
+    use crate::condition::Cond;
     use super::*;
 
     #[test]
@@ -308,6 +327,30 @@ mod tests {
             Ok(("", Op::new_peek(PeekTo::File { file: "out .txt".to_string(), append: false, crlf: None })))
         );
         assert_eq!(parse_peek(":peek :replace crlf "), Ok((":replace crlf ", Op::new_peek(PeekTo::StdOut))));
+    }
+
+    #[test]
+    fn test_parse_drop_while() {
+        assert_eq!(parse_drop_while(":drop while num "), Ok(("", Op::DropWhile(Cond::new_number(None, false)))));
+        assert!(parse_drop_while(":drop num ").is_err());
+    }
+
+    #[test]
+    fn test_parse_take_while() {
+        assert_eq!(parse_take_while(":take while num "), Ok(("", Op::TakeWhile(Cond::new_number(None, false)))));
+        assert!(parse_take_while(":take num ").is_err());
+    }
+
+    #[test]
+    fn test_parse_drop() {
+        assert_eq!(parse_drop(":drop num "), Ok(("", Op::Drop(Cond::new_number(None, false)))));
+        assert!(parse_drop(":drop while num ").is_err());
+    }
+
+    #[test]
+    fn test_parse_take() {
+        assert_eq!(parse_take(":take num "), Ok(("", Op::Take(Cond::new_number(None, false)))));
+        assert!(parse_take(":take while num ").is_err());
     }
 
     #[test]

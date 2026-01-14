@@ -27,8 +27,8 @@ fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<
                 ":replace" => Some(parse_replace(args)?),
                 ":uniq" => Some(parse_uniq(args)?),
                 ":join" => Some(parse_join(args)?),
-                ":drop" => Some(parse_drop(args)?),
-                ":keep" => Some(parse_keep(args)?),
+                ":drop" => Some(parse_drop_or_drop_while(args)?),
+                ":take" => Some(parse_take_or_take_while(args)?),
                 ":sort" => Some(parse_sort(args)?),
                 _ => None,
             })
@@ -107,14 +107,28 @@ fn parse_join(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, R
     Ok(Op::new_join(join_info, batch))
 }
 
-fn parse_drop(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
+fn parse_drop_or_drop_while(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
     args.next();
-    Ok(Op::Drop(parse_cond(args, ":drop")?))
+    if let Some(maybe_while) = args.peek()
+        && maybe_while.eq_ignore_ascii_case("while")
+    {
+        args.next();
+        Ok(Op::DropWhile(parse_cond(args, ":drop while")?))
+    } else {
+        Ok(Op::Drop(parse_cond(args, ":drop")?))
+    }
 }
 
-fn parse_keep(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
+fn parse_take_or_take_while(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
     args.next();
-    Ok(Op::Keep(parse_cond(args, ":keep")?))
+    if let Some(maybe_while) = args.peek()
+        && maybe_while.eq_ignore_ascii_case("while")
+    {
+        args.next();
+        Ok(Op::TakeWhile(parse_cond(args, ":take while")?))
+    } else {
+        Ok(Op::Take(parse_cond(args, ":take")?))
+    }
 }
 
 fn parse_sort(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {

@@ -88,10 +88,18 @@ pub(crate) enum Op {
     ///             :drop <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
     Drop(Cond),
-    /// :keep       根据指定条件选择数据保留，其他数据丢弃。
-    ///             :keep <condition>
+    /// :take       根据指定条件选择数据保留，其他数据丢弃。
+    ///             :take <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
-    Keep(Cond),
+    Take(Cond),
+    /// :drop while       根据指定条件选择数据持续丢弃，直到条件首次不满足。
+    ///             :drop while <condition>
+    ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
+    DropWhile(Cond),
+    /// :take while       根据指定条件选择数据持续保留，直到条件首次不满足。
+    ///             :take while <condition>
+    ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
+    TakeWhile(Cond),
     /* **************************************** 增加 **************************************** */
     /* **************************************** 调整位置 **************************************** */
     /// :sort       排序。
@@ -237,7 +245,9 @@ impl Op {
                 })
             }
             Op::Drop(cond) => Ok(Pipe { iter: Box::new(pipe.filter(move |s| !cond.test(s))) }),
-            Op::Keep(cond) => Ok(Pipe { iter: Box::new(pipe.filter(move |s| cond.test(s))) }),
+            Op::Take(cond) => Ok(Pipe { iter: Box::new(pipe.filter(move |s| cond.test(s))) }),
+            Op::DropWhile(cond) => Ok(Pipe { iter: Box::new(pipe.skip_while(move |s| cond.test(s))) }),
+            Op::TakeWhile(cond) => Ok(Pipe { iter: Box::new(pipe.take_while(move |s| cond.test(s))) }),
             Op::Sort { sort_by, desc } => match sort_by {
                 SortBy::Num(def_integer, def_float) => {
                     if let Some(def) = def_integer {
