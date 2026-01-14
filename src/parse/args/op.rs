@@ -29,6 +29,7 @@ fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<
                 ":join" => Some(parse_join(args)?),
                 ":drop" => Some(parse_drop_or_drop_while(args)?),
                 ":take" => Some(parse_take_or_take_while(args)?),
+                ":count" => Some(parse_count(args)?),
                 ":sort" => Some(parse_sort(args)?),
                 _ => None,
             })
@@ -129,6 +130,11 @@ fn parse_take_or_take_while(args: &mut Peekable<impl Iterator<Item = String>>) -
     } else {
         Ok(Op::Take(parse_cond(args, ":take")?))
     }
+}
+
+fn parse_count(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
+    args.next();
+    Ok(Op::Count)
 }
 
 fn parse_sort(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {

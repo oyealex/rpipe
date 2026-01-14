@@ -100,6 +100,9 @@ pub(crate) enum Op {
     ///             :take while <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
     TakeWhile(Cond),
+    /// :count      统计数据数量。
+    ///             :count
+    Count,
     /* **************************************** 增加 **************************************** */
     /* **************************************** 调整位置 **************************************** */
     /// :sort       排序。
@@ -248,6 +251,7 @@ impl Op {
             Op::Take(cond) => Ok(Pipe { iter: Box::new(pipe.filter(move |s| cond.test(s))) }),
             Op::DropWhile(cond) => Ok(Pipe { iter: Box::new(pipe.skip_while(move |s| cond.test(s))) }),
             Op::TakeWhile(cond) => Ok(Pipe { iter: Box::new(pipe.take_while(move |s| cond.test(s))) }),
+            Op::Count => Ok(Pipe {iter: Box::new(std::iter::once(pipe.count().to_string()))}),
             Op::Sort { sort_by, desc } => match sort_by {
                 SortBy::Num(def_integer, def_float) => {
                     if let Some(def) = def_integer {

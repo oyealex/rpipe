@@ -29,6 +29,7 @@ pub(in crate::parse) fn parse_ops(input: &str) -> OpsResult<'_> {
             parse_take_while,
             parse_drop,
             parse_take,
+            parse_count,
             parse_sort,
         ))),
     )
@@ -183,6 +184,10 @@ fn parse_take(input: &str) -> OpResult<'_> {
     context("Op::Take", map(preceded((tag_no_case(":take"), space1), parse_cond), |cond| Op::Take(cond))).parse(input)
 }
 
+fn parse_count(input: &str) -> OpResult<'_> {
+    context("Op::Count", map(preceded(tag_no_case(":count"), space1), |_| Op::Count)).parse(input)
+}
+
 fn parse_sort(input: &str) -> OpResult<'_> {
     context(
         "Op::Sort",
@@ -242,8 +247,8 @@ fn parse_sort(input: &str) -> OpResult<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::condition::Cond;
     use super::*;
+    use crate::condition::Cond;
 
     #[test]
     fn test_parse_upper() {
@@ -351,6 +356,11 @@ mod tests {
     fn test_parse_take() {
         assert_eq!(parse_take(":take num "), Ok(("", Op::Take(Cond::new_number(None, false)))));
         assert!(parse_take(":take while num ").is_err());
+    }
+
+    #[test]
+    fn test_parse_count() {
+        assert_eq!(parse_count(":count "), Ok(("", Op::Count)));
     }
 
     #[test]
