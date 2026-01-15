@@ -1,7 +1,7 @@
-use std::iter::Peekable;
 use crate::config::Config;
 use crate::err::RpErr;
 use crate::pipe::Pipe;
+use std::iter::Peekable;
 use std::str::FromStr;
 
 mod condition;

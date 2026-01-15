@@ -8,11 +8,11 @@ use crate::parse::args::output::parse_output;
 use std::iter::Peekable;
 use std::str::FromStr;
 
+mod condition;
 mod config;
 mod input;
 mod op;
 mod output;
-mod condition;
 
 pub use config::parse_configs;
 

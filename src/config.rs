@@ -51,7 +51,9 @@ pub(crate) fn print_pipe_info(input: &Input, ops: &Vec<Op>, output: &Output) {
     println!("    {:?}", output);
 }
 
-pub(crate) fn parse_eval_token(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<(Input, Vec<Op>, Output), RpErr> {
+pub(crate) fn parse_eval_token(
+    args: &mut Peekable<impl Iterator<Item = String>>,
+) -> Result<(Input, Vec<Op>, Output), RpErr> {
     if let Some(mut token) = args.next() {
         token.push(' ');
         match parse::token::parse_without_configs(&token.trim_start()) {

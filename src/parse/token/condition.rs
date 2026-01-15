@@ -27,10 +27,10 @@ pub(in crate::parse) fn parse_cond(input: &str) -> IResult<&str, Cond, ParserErr
                 "Cond::NumSpec",
                 preceded((tag_no_case("num"), space1), map(parse_cond_spec(parse_num), |arg| Cond::NumSpec(arg))),
             ),
-            preceded(tag_no_case("num"), alt((
-                preceded(space1, parse_cond_number),
-                success(Cond::new_number(None, false))
-                )) ),
+            preceded(
+                tag_no_case("num"),
+                alt((preceded(space1, parse_cond_number), success(Cond::new_number(None, false)))),
+            ),
             parse_cond_text_all_case,
             parse_cond_text_empty_or_blank,
             preceded((tag_no_case("reg"), space1), parse_cond_reg_match),
@@ -94,10 +94,7 @@ pub(in crate::parse) fn parse_cond_number(input: &str) -> IResult<&str, Cond, Pa
                 |num_type| Cond::new_number(num_type, true),
             ),
             map(
-                (
-                    opt(char('!')),
-                    alt((value(true, tag_no_case("integer")), value(false, tag_no_case("float")))),
-                ), // 必定有integer|float
+                (opt(char('!')), alt((value(true, tag_no_case("integer")), value(false, tag_no_case("float"))))), // 必定有integer|float
                 |(not, num_type)| Cond::new_number(Some(num_type), not.is_some()),
             ),
         )),

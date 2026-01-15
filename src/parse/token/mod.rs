@@ -1,8 +1,8 @@
+pub(in crate::parse) mod condition;
 mod config;
 pub(in crate::parse) mod input;
 pub(in crate::parse) mod op;
 pub(in crate::parse) mod output;
-pub(in crate::parse) mod condition;
 
 use crate::err::RpErr;
 use crate::input::Input;

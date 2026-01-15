@@ -1,6 +1,6 @@
 use crate::err::RpErr;
 use crate::op::trim::{TrimArg, TrimMode};
-use crate::op::{JoinInfo, Op, PeekTo, SortBy};
+use crate::op::{CaseArg, JoinInfo, Op, PeekArg, SortBy};
 use crate::parse::args::condition::parse_cond;
 use crate::parse::args::{
     parse_arg, parse_as, parse_general_file_info, parse_opt_arg, parse_positive_usize, parse_tag_nocase,
@@ -22,9 +22,9 @@ fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<
             let lower_op = op.to_ascii_lowercase();
             Ok(match lower_op.as_str() {
                 ":peek" => Some(parse_peek(args)?),
-                ":upper" => Some(parse_upper(args)?),
-                ":lower" => Some(parse_lower(args)?),
-                ":case" => Some(parse_case(args)?),
+                ":lower" => Some(parse_case(CaseArg::Lower, args)?),
+                ":upper" => Some(parse_case(CaseArg::Upper, args)?),
+                ":case" => Some(parse_case(CaseArg::Switch, args)?),
                 ":replace" => Some(parse_replace(args)?),
                 ":trim" => Some(parse_trim(TrimMode::All, false, args)?),
                 ":ltrim" => Some(parse_trim(TrimMode::Left, false, args)?),
@@ -48,25 +48,15 @@ fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<
 fn parse_peek(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
     args.next();
     if let Some((file, append, crlf)) = parse_general_file_info(args, true) {
-        Ok(Op::new_peek(PeekTo::File { file, append, crlf }))
+        Ok(Op::Peek(PeekArg::File { file, append, crlf }))
     } else {
-        Ok(Op::new_peek(PeekTo::StdOut))
+        Ok(Op::Peek(PeekArg::StdOut))
     }
 }
 
-fn parse_upper(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
+fn parse_case(case_arg: CaseArg, args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
     args.next();
-    Ok(Op::new_upper())
-}
-
-fn parse_lower(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
-    args.next();
-    Ok(Op::new_lower())
-}
-
-fn parse_case(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
-    args.next();
-    Ok(Op::new_case())
+    Ok(Op::Case(case_arg))
 }
 
 fn parse_replace(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
@@ -98,7 +88,7 @@ fn parse_trim(
 fn parse_uniq(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
     args.next();
     let nocase = parse_tag_nocase(args, "nocase");
-    Ok(Op::new_uniq(nocase))
+    Ok(Op::Uniq(nocase))
 }
 
 fn parse_join(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
@@ -193,6 +183,7 @@ fn parse_sort(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, R
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::op::CaseArg;
     use crate::parse::args::build_args;
 
     #[test]
@@ -205,32 +196,24 @@ mod tests {
     #[test]
     fn test_parse_peek() {
         let mut args = build_args(":uniq");
-        assert_eq!(Ok(Some(Op::new_uniq(false))), parse_op(&mut args));
+        assert_eq!(Ok(Some(Op::Uniq(false))), parse_op(&mut args));
         assert!(args.next().is_none());
 
         let mut args = build_args(":uniq nocase");
-        assert_eq!(Ok(Some(Op::new_uniq(true))), parse_op(&mut args));
-        assert!(args.next().is_none());
-    }
-
-    #[test]
-    fn test_parse_upper() {
-        let mut args = build_args(":upper");
-        assert_eq!(Ok(Some(Op::new_upper())), parse_op(&mut args));
-        assert!(args.next().is_none());
-    }
-
-    #[test]
-    fn test_parse_lower() {
-        let mut args = build_args(":lower");
-        assert_eq!(Ok(Some(Op::new_lower())), parse_op(&mut args));
+        assert_eq!(Ok(Some(Op::Uniq(true))), parse_op(&mut args));
         assert!(args.next().is_none());
     }
 
     #[test]
     fn test_parse_case() {
+        let mut args = build_args(":lower");
+        assert_eq!(Ok(Some(Op::Case(CaseArg::Lower))), parse_op(&mut args));
+        assert!(args.next().is_none());
+        let mut args = build_args(":upper");
+        assert_eq!(Ok(Some(Op::Case(CaseArg::Upper))), parse_op(&mut args));
+        assert!(args.next().is_none());
         let mut args = build_args(":case");
-        assert_eq!(Ok(Some(Op::new_case())), parse_op(&mut args));
+        assert_eq!(Ok(Some(Op::Case(CaseArg::Switch))), parse_op(&mut args));
         assert!(args.next().is_none());
     }
 
@@ -394,11 +377,11 @@ mod tests {
     #[test]
     fn test_parse_uniq() {
         let mut args = build_args(":uniq");
-        assert_eq!(Ok(Some(Op::new_uniq(false))), parse_op(&mut args));
+        assert_eq!(Ok(Some(Op::Uniq(false))), parse_op(&mut args));
         assert!(args.next().is_none());
 
         let mut args = build_args(":uniq nocase");
-        assert_eq!(Ok(Some(Op::new_uniq(true))), parse_op(&mut args));
+        assert_eq!(Ok(Some(Op::Uniq(true))), parse_op(&mut args));
         assert!(args.next().is_none());
     }
 

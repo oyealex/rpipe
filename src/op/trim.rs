@@ -23,8 +23,7 @@ impl TrimArg {
         TrimArg {
             trim_mode,
             pattern: {
-                let pattern =
-                if nocase {
+                let pattern = if nocase {
                     pattern.map(|mut s| {
                         s.make_ascii_lowercase();
                         s
@@ -34,10 +33,10 @@ impl TrimArg {
                 };
                 if char_mode {
                     pattern.map(|s| {
-                    let mut seen = HashSet::new();
+                        let mut seen = HashSet::new();
                         s.chars().filter(|&c| seen.insert(c)).collect()
                     })
-                }else {
+                } else {
                     pattern
                 }
             },
@@ -171,24 +170,61 @@ mod tests {
     fn test_trim_char_nocase() {
         // left
         assert_eq!("abc", TrimArg::new(TrimMode::Left, None, true, true).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::Left, Some("_;+-=".to_owned()), true, true).trim("abc123abc".to_owned()));
-        assert_eq!("23ABC", TrimArg::new(TrimMode::Left, Some("cBAa1".to_owned()), true, true).trim("abc123ABC".to_owned()));
-        assert_eq!("啊你好", TrimArg::new(TrimMode::Left, Some("你好好".to_owned()), true, true).trim("你好你好啊你好".to_owned()));
-        assert_eq!("1c好啊你好", TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), true, true).trim("你a好b你c1c好啊你好".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::Left, Some("_;+-=".to_owned()), true, true).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "23ABC",
+            TrimArg::new(TrimMode::Left, Some("cBAa1".to_owned()), true, true).trim("abc123ABC".to_owned())
+        );
+        assert_eq!(
+            "啊你好",
+            TrimArg::new(TrimMode::Left, Some("你好好".to_owned()), true, true).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "1c好啊你好",
+            TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), true, true).trim("你a好b你c1c好啊你好".to_owned())
+        );
         assert_eq!("", TrimArg::new(TrimMode::Left, Some("你好啊abc".to_owned()), true, true).trim("a你".to_owned()));
         // right
         assert_eq!("abc", TrimArg::new(TrimMode::Right, None, true, true).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::Right, Some("_;+-=".to_owned()), true, true).trim("abc123abc".to_owned()));
-        assert_eq!("abc123", TrimArg::new(TrimMode::Right, Some("cBAa1".to_owned()), true, true).trim("abc123ABC".to_owned()));
-        assert_eq!("你好你好啊", TrimArg::new(TrimMode::Right, Some("你好好".to_owned()), true, true).trim("你好你好啊你好".to_owned()));
-        assert_eq!("你a好b你c1c好啊", TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), true, true).trim("你a好b你c1c好啊你好".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::Right, Some("_;+-=".to_owned()), true, true).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "abc123",
+            TrimArg::new(TrimMode::Right, Some("cBAa1".to_owned()), true, true).trim("abc123ABC".to_owned())
+        );
+        assert_eq!(
+            "你好你好啊",
+            TrimArg::new(TrimMode::Right, Some("你好好".to_owned()), true, true).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "你a好b你c1c好啊",
+            TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), true, true)
+                .trim("你a好b你c1c好啊你好".to_owned())
+        );
         assert_eq!("", TrimArg::new(TrimMode::Right, Some("你好啊abc".to_owned()), true, true).trim("a你".to_owned()));
         // all
         assert_eq!("abc", TrimArg::new(TrimMode::All, None, true, true).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::All, Some("_;+-=".to_owned()), true, true).trim("abc123abc".to_owned()));
-        assert_eq!("23", TrimArg::new(TrimMode::All, Some("cBAa1".to_owned()), true, true).trim("abc123ABC".to_owned()));
-        assert_eq!("啊", TrimArg::new(TrimMode::All, Some("你好好".to_owned()), true, true).trim("你好你好啊你好".to_owned()));
-        assert_eq!("1c好啊", TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), true, true).trim("你a好b你c1c好啊你好".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::All, Some("_;+-=".to_owned()), true, true).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "23",
+            TrimArg::new(TrimMode::All, Some("cBAa1".to_owned()), true, true).trim("abc123ABC".to_owned())
+        );
+        assert_eq!(
+            "啊",
+            TrimArg::new(TrimMode::All, Some("你好好".to_owned()), true, true).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "1c好啊",
+            TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), true, true).trim("你a好b你c1c好啊你好".to_owned())
+        );
         assert_eq!("", TrimArg::new(TrimMode::All, Some("你好啊abc".to_owned()), true, true).trim("a你".to_owned()));
     }
 
@@ -196,24 +232,62 @@ mod tests {
     fn test_trim_char() {
         // left
         assert_eq!("abc", TrimArg::new(TrimMode::Left, None, true, false).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::Left, Some("_;+-=".to_owned()), true, false).trim("abc123abc".to_owned()));
-        assert_eq!("23aBc", TrimArg::new(TrimMode::Left, Some("aBc1".to_owned()), true, false).trim("acB123aBc".to_owned()));
-        assert_eq!("啊你好", TrimArg::new(TrimMode::Left, Some("你好好".to_owned()), true, false).trim("你好你好啊你好".to_owned()));
-        assert_eq!("b你c1c好啊你好", TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), true, false).trim("你a好b你c1c好啊你好".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::Left, Some("_;+-=".to_owned()), true, false).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "23aBc",
+            TrimArg::new(TrimMode::Left, Some("aBc1".to_owned()), true, false).trim("acB123aBc".to_owned())
+        );
+        assert_eq!(
+            "啊你好",
+            TrimArg::new(TrimMode::Left, Some("你好好".to_owned()), true, false).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "b你c1c好啊你好",
+            TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), true, false)
+                .trim("你a好b你c1c好啊你好".to_owned())
+        );
         assert_eq!("", TrimArg::new(TrimMode::Left, Some("你好啊abc".to_owned()), true, false).trim("a你".to_owned()));
         // right
         assert_eq!("abc", TrimArg::new(TrimMode::Right, None, true, false).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::Right, Some("_;+-=".to_owned()), true, false).trim("abc123abc".to_owned()));
-        assert_eq!("abc123ab", TrimArg::new(TrimMode::Right, Some("aBc1".to_owned()), true, false).trim("abc123abc".to_owned()));
-        assert_eq!("你好你好啊", TrimArg::new(TrimMode::Right, Some("你好好".to_owned()), true, false).trim("你好你好啊你好".to_owned()));
-        assert_eq!("你a好b你c1c好啊", TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), true, false).trim("你a好b你c1c好啊你好".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::Right, Some("_;+-=".to_owned()), true, false).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "abc123ab",
+            TrimArg::new(TrimMode::Right, Some("aBc1".to_owned()), true, false).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "你好你好啊",
+            TrimArg::new(TrimMode::Right, Some("你好好".to_owned()), true, false).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "你a好b你c1c好啊",
+            TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), true, false)
+                .trim("你a好b你c1c好啊你好".to_owned())
+        );
         assert_eq!("", TrimArg::new(TrimMode::Right, Some("你好啊abc".to_owned()), true, false).trim("a你".to_owned()));
         // all
         assert_eq!("abc", TrimArg::new(TrimMode::All, None, true, false).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::All, Some("_;+-=".to_owned()), true, false).trim("abc123abc".to_owned()));
-        assert_eq!("bc123ab", TrimArg::new(TrimMode::All, Some("aBc1".to_owned()), true, false).trim("abc123abc".to_owned()));
-        assert_eq!("啊", TrimArg::new(TrimMode::All, Some("你好好".to_owned()), true, false).trim("你好你好啊你好".to_owned()));
-        assert_eq!("b你c1c好啊", TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), true, false).trim("你a好b你c1c好啊你好".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::All, Some("_;+-=".to_owned()), true, false).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "bc123ab",
+            TrimArg::new(TrimMode::All, Some("aBc1".to_owned()), true, false).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "啊",
+            TrimArg::new(TrimMode::All, Some("你好好".to_owned()), true, false).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "b你c1c好啊",
+            TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), true, false).trim("你a好b你c1c好啊你好".to_owned())
+        );
         assert_eq!("", TrimArg::new(TrimMode::All, Some("你好啊abc".to_owned()), true, false).trim("a你".to_owned()));
     }
 
@@ -221,61 +295,198 @@ mod tests {
     fn test_trim_str_nocase() {
         // left
         assert_eq!("abc", TrimArg::new(TrimMode::Left, None, false, true).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::Left, Some("_;+-=".to_owned()), false, true).trim("abc123abc".to_owned()));
-        assert_eq!("abc123abCABC", TrimArg::new(TrimMode::Left, Some("abc".to_owned()), false, true).trim("abcabc123abCABC".to_owned()));
-        assert_eq!("123aBc", TrimArg::new(TrimMode::Left, Some("acB".to_owned()), false, true).trim("acB123aBc".to_owned()));
-        assert_eq!("好啊你好", TrimArg::new(TrimMode::Left, Some("你好你".to_owned()), false, true).trim("你好你好啊你好".to_owned()));
-        assert_eq!("你a好b你c1c好啊你好", TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), false, true).trim("你a好b你c1c好啊你好".to_owned()));
-        assert_eq!("啊你好你好aBc", TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), false, true).trim("你好aBc啊你好你好aBc".to_owned()));
-        assert_eq!("a你", TrimArg::new(TrimMode::Left, Some("你好啊abc".to_owned()), false, true).trim("a你".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::Left, Some("_;+-=".to_owned()), false, true).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "abc123abCABC",
+            TrimArg::new(TrimMode::Left, Some("abc".to_owned()), false, true).trim("abcabc123abCABC".to_owned())
+        );
+        assert_eq!(
+            "123aBc",
+            TrimArg::new(TrimMode::Left, Some("acB".to_owned()), false, true).trim("acB123aBc".to_owned())
+        );
+        assert_eq!(
+            "好啊你好",
+            TrimArg::new(TrimMode::Left, Some("你好你".to_owned()), false, true).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "你a好b你c1c好啊你好",
+            TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), false, true)
+                .trim("你a好b你c1c好啊你好".to_owned())
+        );
+        assert_eq!(
+            "啊你好你好aBc",
+            TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), false, true)
+                .trim("你好aBc啊你好你好aBc".to_owned())
+        );
+        assert_eq!(
+            "a你",
+            TrimArg::new(TrimMode::Left, Some("你好啊abc".to_owned()), false, true).trim("a你".to_owned())
+        );
         // right
         assert_eq!("abc", TrimArg::new(TrimMode::Right, None, false, true).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::Right, Some("_;+-=".to_owned()), false, true).trim("abc123abc".to_owned()));
-        assert_eq!("abcabc123abC", TrimArg::new(TrimMode::Right, Some("abc".to_owned()), false, true).trim("abcabc123abCABC".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::Right, Some("aBc1".to_owned()), false, true).trim("abc123abc".to_owned()));
-        assert_eq!("你好你好啊你好", TrimArg::new(TrimMode::Right, Some("你好你".to_owned()), false, true).trim("你好你好啊你好".to_owned()));
-        assert_eq!("你a好b你c1c好啊你好", TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), false, true).trim("你a好b你c1c好啊你好".to_owned()));
-        assert_eq!("你好aBc啊你好", TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), false, true).trim("你好aBc啊你好你好aBc".to_owned()));
-        assert_eq!("a你", TrimArg::new(TrimMode::Right, Some("你好啊abc".to_owned()), false, true).trim("a你".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::Right, Some("_;+-=".to_owned()), false, true).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "abcabc123abC",
+            TrimArg::new(TrimMode::Right, Some("abc".to_owned()), false, true).trim("abcabc123abCABC".to_owned())
+        );
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::Right, Some("aBc1".to_owned()), false, true).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "你好你好啊你好",
+            TrimArg::new(TrimMode::Right, Some("你好你".to_owned()), false, true).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "你a好b你c1c好啊你好",
+            TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), false, true)
+                .trim("你a好b你c1c好啊你好".to_owned())
+        );
+        assert_eq!(
+            "你好aBc啊你好",
+            TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), false, true)
+                .trim("你好aBc啊你好你好aBc".to_owned())
+        );
+        assert_eq!(
+            "a你",
+            TrimArg::new(TrimMode::Right, Some("你好啊abc".to_owned()), false, true).trim("a你".to_owned())
+        );
         // all
         assert_eq!("abc", TrimArg::new(TrimMode::All, None, false, true).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::All, Some("_;+-=".to_owned()), false, true).trim("abc123abc".to_owned()));
-        assert_eq!("abc123abC", TrimArg::new(TrimMode::All, Some("abc".to_owned()), false, true).trim("abcabc123abCABC".to_owned()));
-        assert_eq!("23abc", TrimArg::new(TrimMode::All, Some("aBc1".to_owned()), false, true).trim("abc123abc".to_owned()));
-        assert_eq!("好啊你好", TrimArg::new(TrimMode::All, Some("你好你".to_owned()), false, true).trim("你好你好啊你好".to_owned()));
-        assert_eq!("你a好b你c1c好啊你好", TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), false, true).trim("你a好b你c1c好啊你好".to_owned()));
-        assert_eq!("啊你好", TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), false, true).trim("你好aBc啊你好你好aBc".to_owned()));
-        assert_eq!("a你", TrimArg::new(TrimMode::All, Some("你好啊abc".to_owned()), false, true).trim("a你".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::All, Some("_;+-=".to_owned()), false, true).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "abc123abC",
+            TrimArg::new(TrimMode::All, Some("abc".to_owned()), false, true).trim("abcabc123abCABC".to_owned())
+        );
+        assert_eq!(
+            "23abc",
+            TrimArg::new(TrimMode::All, Some("aBc1".to_owned()), false, true).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "好啊你好",
+            TrimArg::new(TrimMode::All, Some("你好你".to_owned()), false, true).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "你a好b你c1c好啊你好",
+            TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), false, true).trim("你a好b你c1c好啊你好".to_owned())
+        );
+        assert_eq!(
+            "啊你好",
+            TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), false, true)
+                .trim("你好aBc啊你好你好aBc".to_owned())
+        );
+        assert_eq!(
+            "a你",
+            TrimArg::new(TrimMode::All, Some("你好啊abc".to_owned()), false, true).trim("a你".to_owned())
+        );
     }
 
     #[test]
     fn test_trim_str() {
         // left
         assert_eq!("abc", TrimArg::new(TrimMode::Left, None, false, false).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::Left, Some("_;+-=".to_owned()), false, false).trim("abc123abc".to_owned()));
-        assert_eq!("aBcabc123abcabc", TrimArg::new(TrimMode::Left, Some("abc".to_owned()), false, false).trim("aBcabc123abcabc".to_owned()));
-        assert_eq!("123acb", TrimArg::new(TrimMode::Left, Some("acB".to_owned()), false, false).trim("acB123acb".to_owned()));
-        assert_eq!("好啊你好", TrimArg::new(TrimMode::Left, Some("你好你".to_owned()), false, false).trim("你好你好啊你好".to_owned()));
-        assert_eq!("你a好b你c1c好啊你好", TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), false, false).trim("你a好b你c1c好啊你好".to_owned()));
-        assert_eq!("啊你好你好abc", TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), false, false).trim("你好aBc啊你好你好abc".to_owned()));
-        assert_eq!("a你", TrimArg::new(TrimMode::Left, Some("你好啊abc".to_owned()), false, false).trim("a你".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::Left, Some("_;+-=".to_owned()), false, false).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "aBcabc123abcabc",
+            TrimArg::new(TrimMode::Left, Some("abc".to_owned()), false, false).trim("aBcabc123abcabc".to_owned())
+        );
+        assert_eq!(
+            "123acb",
+            TrimArg::new(TrimMode::Left, Some("acB".to_owned()), false, false).trim("acB123acb".to_owned())
+        );
+        assert_eq!(
+            "好啊你好",
+            TrimArg::new(TrimMode::Left, Some("你好你".to_owned()), false, false).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "你a好b你c1c好啊你好",
+            TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), false, false)
+                .trim("你a好b你c1c好啊你好".to_owned())
+        );
+        assert_eq!(
+            "啊你好你好abc",
+            TrimArg::new(TrimMode::Left, Some("你好aBc".to_owned()), false, false)
+                .trim("你好aBc啊你好你好abc".to_owned())
+        );
+        assert_eq!(
+            "a你",
+            TrimArg::new(TrimMode::Left, Some("你好啊abc".to_owned()), false, false).trim("a你".to_owned())
+        );
         // right
         assert_eq!("abc", TrimArg::new(TrimMode::Right, None, false, false).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::Right, Some("_;+-=".to_owned()), false, false).trim("abc123abc".to_owned()));
-        assert_eq!("aBcabc123abc", TrimArg::new(TrimMode::Right, Some("abc".to_owned()), false, false).trim("aBcabc123abcabc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::Right, Some("aBc1".to_owned()), false, false).trim("abc123abc".to_owned()));
-        assert_eq!("你好你好啊你好", TrimArg::new(TrimMode::Right, Some("你好你".to_owned()), false, false).trim("你好你好啊你好".to_owned()));
-        assert_eq!("你a好b你c1c好啊你好", TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), false, false).trim("你a好b你c1c好啊你好".to_owned()));
-        assert_eq!("你好aBc啊你好你好abc", TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), false, false).trim("你好aBc啊你好你好abc".to_owned()));
-        assert_eq!("a你", TrimArg::new(TrimMode::Right, Some("你好啊abc".to_owned()), false, false).trim("a你".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::Right, Some("_;+-=".to_owned()), false, false).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "aBcabc123abc",
+            TrimArg::new(TrimMode::Right, Some("abc".to_owned()), false, false).trim("aBcabc123abcabc".to_owned())
+        );
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::Right, Some("aBc1".to_owned()), false, false).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "你好你好啊你好",
+            TrimArg::new(TrimMode::Right, Some("你好你".to_owned()), false, false).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "你a好b你c1c好啊你好",
+            TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), false, false)
+                .trim("你a好b你c1c好啊你好".to_owned())
+        );
+        assert_eq!(
+            "你好aBc啊你好你好abc",
+            TrimArg::new(TrimMode::Right, Some("你好aBc".to_owned()), false, false)
+                .trim("你好aBc啊你好你好abc".to_owned())
+        );
+        assert_eq!(
+            "a你",
+            TrimArg::new(TrimMode::Right, Some("你好啊abc".to_owned()), false, false).trim("a你".to_owned())
+        );
         // all
         assert_eq!("abc", TrimArg::new(TrimMode::All, None, false, false).trim("abc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::All, Some("_;+-=".to_owned()), false, false).trim("abc123abc".to_owned()));
-        assert_eq!("aBcabc123abc", TrimArg::new(TrimMode::All, Some("abc".to_owned()), false, false).trim("aBcabc123abcabc".to_owned()));
-        assert_eq!("abc123abc", TrimArg::new(TrimMode::All, Some("aBc1".to_owned()), false, false).trim("abc123abc".to_owned()));
-        assert_eq!("好啊你好", TrimArg::new(TrimMode::All, Some("你好你".to_owned()), false, false).trim("你好你好啊你好".to_owned()));
-        assert_eq!("你a好b你c1c好啊你好", TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), false, false).trim("你a好b你c1c好啊你好".to_owned()));
-        assert_eq!("啊你好你好abc", TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), false, false).trim("你好aBc啊你好你好abc".to_owned()));
-        assert_eq!("a你", TrimArg::new(TrimMode::All, Some("你好啊abc".to_owned()), false, false).trim("a你".to_owned()));
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::All, Some("_;+-=".to_owned()), false, false).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "aBcabc123abc",
+            TrimArg::new(TrimMode::All, Some("abc".to_owned()), false, false).trim("aBcabc123abcabc".to_owned())
+        );
+        assert_eq!(
+            "abc123abc",
+            TrimArg::new(TrimMode::All, Some("aBc1".to_owned()), false, false).trim("abc123abc".to_owned())
+        );
+        assert_eq!(
+            "好啊你好",
+            TrimArg::new(TrimMode::All, Some("你好你".to_owned()), false, false).trim("你好你好啊你好".to_owned())
+        );
+        assert_eq!(
+            "你a好b你c1c好啊你好",
+            TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), false, false)
+                .trim("你a好b你c1c好啊你好".to_owned())
+        );
+        assert_eq!(
+            "啊你好你好abc",
+            TrimArg::new(TrimMode::All, Some("你好aBc".to_owned()), false, false)
+                .trim("你好aBc啊你好你好abc".to_owned())
+        );
+        assert_eq!(
+            "a你",
+            TrimArg::new(TrimMode::All, Some("你好啊abc".to_owned()), false, false).trim("a你".to_owned())
+        );
     }
 }

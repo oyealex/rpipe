@@ -3,6 +3,7 @@ pub(crate) mod trim;
 use crate::condition::Cond;
 use crate::config::{is_nocase, Config};
 use crate::err::RpErr;
+use crate::op::trim::TrimArg;
 use crate::pipe::Pipe;
 use crate::{Float, Integer, PipeRes};
 use cmd_help::CmdHelp;
@@ -15,10 +16,16 @@ use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
 use unicase::UniCase;
-use crate::op::trim::TrimArg;
 
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) enum PeekTo {
+pub(crate) enum CaseArg {
+    Upper,
+    Lower,
+    Switch,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) enum PeekArg {
     StdOut,
     File { file: String, append: bool, crlf: Option<bool> },
 }
@@ -45,14 +52,12 @@ pub(crate) enum Op {
     ///                 :peek file.txt lf
     ///                 :peek file.txt crlf
     ///                 :peek file.txt append crlf
-    Peek(PeekTo),
+    Peek(PeekArg),
     /* **************************************** 转换 **************************************** */
     /// :upper      转为ASCII大写。
-    Upper,
     /// :lower      转为ASCII小写。
-    Lower,
     /// :case       切换ASCII大小写。
-    Case,
+    Case(CaseArg),
     /// :replace    替换字符串。
     ///             :replace <from> <to>[ <count>][ nocase]
     ///                 <from>  待替换的字符串，必选。
@@ -97,7 +102,7 @@ pub(crate) enum Op {
     ///             例如：
     ///                 :uniq
     ///                 :uniq nocase
-    Uniq { nocase: bool },
+    Uniq(bool /*nocase*/),
     /// :join       合并数据。
     ///             :join<[ <delimiter>[ <prefix>[ <postfix>[ <batch>]]]]
     ///                 <delimiter> 分隔字符串，可选。
@@ -158,23 +163,8 @@ pub(crate) enum Op {
 }
 
 impl Op {
-    pub(crate) fn new_peek(peek_to: PeekTo) -> Op {
-        Op::Peek(peek_to)
-    }
-    pub(crate) fn new_upper() -> Op {
-        Op::Upper
-    }
-    pub(crate) fn new_lower() -> Op {
-        Op::Lower
-    }
-    pub(crate) fn new_case() -> Op {
-        Op::Case
-    }
     pub(crate) fn new_replace(from: String, to: String, count: Option<usize>, nocase: bool) -> Op {
         Op::Replace { from, to, count, nocase }
-    }
-    pub(crate) fn new_uniq(nocase: bool) -> Op {
-        Op::Uniq { nocase }
     }
     pub(crate) fn new_join(join_info: JoinInfo, count: Option<usize>) -> Op {
         Op::Join { join_info, batch: count }
@@ -186,8 +176,8 @@ impl Op {
     pub(crate) fn wrap(self, mut pipe: Pipe, configs: &'static [Config]) -> PipeRes {
         match self {
             Op::Peek(peek) => match peek {
-                PeekTo::StdOut => Ok(pipe.op_inspect(|item| println!("{item}"))),
-                PeekTo::File { file, append, crlf } => {
+                PeekArg::StdOut => Ok(pipe.op_inspect(|item| println!("{item}"))),
+                PeekArg::File { file, append, crlf } => {
                     match OpenOptions::new().write(true).truncate(!append).append(append).create(true).open(&file) {
                         Ok(mut writer) => {
                             let postfix = if crlf.unwrap_or(false) { "\r\n" } else { "\n" };
@@ -206,26 +196,26 @@ impl Op {
                     }
                 }
             },
-            Op::Upper => Ok(pipe.op_map(|mut item|
-                // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
-                if item.chars().all(|c| c.is_ascii_uppercase()) {
-                    item
-                } else {
-                    item.make_ascii_uppercase();
-                    item
-                }
-            )),
-            Op::Lower => Ok(pipe.op_map(|mut item|
-                // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
-                if item.chars().all(|c| c.is_ascii_lowercase()) {
-                    item
-                } else {
-                    item.make_ascii_lowercase();
-                    item
-                }
-            )),
-            Op::Case => {
-                Ok(pipe.op_map(|mut item| {
+            Op::Case(case_arg) => match case_arg {
+                CaseArg::Lower => Ok(pipe.op_map(|mut item|
+                    // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
+                    if item.chars().all(|c| c.is_ascii_lowercase()) {
+                        item
+                    } else {
+                        item.make_ascii_lowercase();
+                        item
+                    }
+                )),
+                CaseArg::Upper => Ok(pipe.op_map(|mut item|
+                    // OPT 2026-12-29 01:24 Pipe增加属性以优化重复大小写。
+                    if item.chars().all(|c| c.is_ascii_uppercase()) {
+                        item
+                    } else {
+                        item.make_ascii_uppercase();
+                        item
+                    }
+                )),
+                CaseArg::Switch => Ok(pipe.op_map(|mut item| {
                     // 只修改ASCII字母（范围A-Z/a-z），而ASCII字符在UTF-8中就是单字节，
                     // 且切换大小写后仍是合法ASCII（从而合法UTF-8）。
                     for b in unsafe { item.as_bytes_mut() } {
@@ -236,8 +226,8 @@ impl Op {
                         }
                     }
                     item
-                }))
-            }
+                })),
+            },
             Op::Replace { from, to, count, nocase } => {
                 if count == Some(0) {
                     Ok(pipe)
@@ -252,7 +242,7 @@ impl Op {
                 }
             }
             Op::Trim(trim_arg) => Ok(pipe.op_map(move |s| trim_arg.trim(s))),
-            Op::Uniq { nocase } => {
+            Op::Uniq(nocase) => {
                 let mut seen = HashSet::new();
                 Ok(pipe.op_filter(move |item| {
                     let key = if is_nocase(nocase, configs) { item.to_ascii_uppercase() } else { item.clone() };
