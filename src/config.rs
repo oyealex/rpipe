@@ -5,8 +5,7 @@ use crate::output::Output;
 use crate::parse;
 use cmd_help::CmdHelp;
 use itertools::Itertools;
-use std::env::Args;
-use std::iter::{Peekable, Skip};
+use std::iter::Peekable;
 
 #[derive(Debug, Eq, PartialEq, CmdHelp)]
 pub(crate) enum Config {
@@ -52,7 +51,7 @@ pub(crate) fn print_pipe_info(input: &Input, ops: &Vec<Op>, output: &Output) {
     println!("    {:?}", output);
 }
 
-pub(crate) fn parse_eval_token(args: &mut Peekable<Skip<Args>>) -> Result<(Input, Vec<Op>, Output), RpErr> {
+pub(crate) fn parse_eval_token(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<(Input, Vec<Op>, Output), RpErr> {
     if let Some(mut token) = args.next() {
         token.push(' ');
         match parse::token::parse_without_configs(&token.trim_start()) {

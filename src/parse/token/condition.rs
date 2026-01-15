@@ -35,7 +35,7 @@ pub(in crate::parse) fn parse_cond(input: &str) -> IResult<&str, Cond, ParserErr
             parse_cond_text_empty_or_blank,
             preceded((tag_no_case("reg"), space1), parse_cond_reg_match),
         )),
-        context("Cond::ending_space1", space1),
+        context("Cond::trailing_space1", space1),
     )
     .parse(input)
 }

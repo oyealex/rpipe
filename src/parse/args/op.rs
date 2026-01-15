@@ -1,4 +1,5 @@
 use crate::err::RpErr;
+use crate::op::trim::{TrimArg, TrimMode};
 use crate::op::{JoinInfo, Op, PeekTo, SortBy};
 use crate::parse::args::condition::parse_cond;
 use crate::parse::args::{
@@ -25,6 +26,12 @@ fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<
                 ":lower" => Some(parse_lower(args)?),
                 ":case" => Some(parse_case(args)?),
                 ":replace" => Some(parse_replace(args)?),
+                ":trim" => Some(parse_trim(TrimMode::All, false, args)?),
+                ":ltrim" => Some(parse_trim(TrimMode::Left, false, args)?),
+                ":rtrim" => Some(parse_trim(TrimMode::Right, false, args)?),
+                ":trimc" => Some(parse_trim(TrimMode::All, true, args)?),
+                ":ltrimc" => Some(parse_trim(TrimMode::Left, true, args)?),
+                ":rtrimc" => Some(parse_trim(TrimMode::Right, true, args)?),
                 ":uniq" => Some(parse_uniq(args)?),
                 ":join" => Some(parse_join(args)?),
                 ":drop" => Some(parse_drop_or_drop_while(args)?),
@@ -77,6 +84,15 @@ fn parse_replace(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op
     } else {
         Err(RpErr::MissingArg { cmd: ":replace", arg: "from" })
     }
+}
+
+fn parse_trim(
+    trim_mode: TrimMode, char_mode: bool, args: &mut Peekable<impl Iterator<Item = String>>,
+) -> Result<Op, RpErr> {
+    args.next();
+    let pattern = parse_opt_arg(args);
+    let nocase = if pattern.is_some() { parse_tag_nocase(args, "nocase") } else { false };
+    Ok(Op::Trim(TrimArg::new(trim_mode, pattern, char_mode, nocase)))
 }
 
 fn parse_uniq(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
@@ -249,6 +265,130 @@ mod tests {
         let mut args = build_args(":replace");
         assert_eq!(Err(RpErr::MissingArg { cmd: ":replace", arg: "from" }), parse_op(&mut args));
         assert!(args.next().is_none());
+    }
+
+    #[test]
+    fn test_parse_trim() {
+        // trim
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::All, None, false, false)))),
+            parse_op(&mut build_args(":trim"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::All, Some("abc".to_string()), false, false)))),
+            parse_op(&mut build_args(":trim abc"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::All, Some("abc".to_string()), false, true)))),
+            parse_op(&mut build_args(":trim abc nocase"))
+        );
+        let mut args = build_args(":trim :abc");
+        assert_eq!(Ok(Some(Op::Trim(TrimArg::new(TrimMode::All, None, false, false)))), parse_op(&mut args));
+        assert_eq!(vec![":abc"], args.collect::<Vec<_>>());
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::All, Some(":abc".to_string()), false, false)))),
+            parse_op(&mut build_args(":trim ::abc"))
+        );
+        // ltrim
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Left, None, false, false)))),
+            parse_op(&mut build_args(":ltrim"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Left, Some("abc".to_string()), false, false)))),
+            parse_op(&mut build_args(":ltrim abc"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Left, Some("abc".to_string()), false, true)))),
+            parse_op(&mut build_args(":ltrim abc nocase"))
+        );
+        let mut args = build_args(":ltrim :abc");
+        assert_eq!(Ok(Some(Op::Trim(TrimArg::new(TrimMode::Left, None, false, false)))), parse_op(&mut args));
+        assert_eq!(vec![":abc"], args.collect::<Vec<_>>());
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Left, Some(":abc".to_string()), false, false)))),
+            parse_op(&mut build_args(":ltrim ::abc"))
+        );
+        // rtrim
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Right, None, false, false)))),
+            parse_op(&mut build_args(":rtrim"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Right, Some("abc".to_string()), false, false)))),
+            parse_op(&mut build_args(":rtrim abc"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Right, Some("abc".to_string()), false, true)))),
+            parse_op(&mut build_args(":rtrim abc nocase"))
+        );
+        let mut args = build_args(":rtrim :abc");
+        assert_eq!(Ok(Some(Op::Trim(TrimArg::new(TrimMode::Right, None, false, false)))), parse_op(&mut args));
+        assert_eq!(vec![":abc"], args.collect::<Vec<_>>());
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Right, Some(":abc".to_string()), false, false)))),
+            parse_op(&mut build_args(":rtrim ::abc"))
+        );
+        // trimc
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::All, None, true, false)))),
+            parse_op(&mut build_args(":trimc"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::All, Some("abc".to_string()), true, false)))),
+            parse_op(&mut build_args(":trimc abc"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::All, Some("abc".to_string()), true, true)))),
+            parse_op(&mut build_args(":trimc abc nocase"))
+        );
+        let mut args = build_args(":trimc :abc");
+        assert_eq!(Ok(Some(Op::Trim(TrimArg::new(TrimMode::All, None, true, false)))), parse_op(&mut args));
+        assert_eq!(vec![":abc"], args.collect::<Vec<_>>());
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::All, Some(":abc".to_string()), true, false)))),
+            parse_op(&mut build_args(":trimc ::abc"))
+        );
+        // ltrimc
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Left, None, true, false)))),
+            parse_op(&mut build_args(":ltrimc"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Left, Some("abc".to_string()), true, false)))),
+            parse_op(&mut build_args(":ltrimc abc"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Left, Some("abc".to_string()), true, true)))),
+            parse_op(&mut build_args(":ltrimc abc nocase"))
+        );
+        let mut args = build_args(":ltrimc :abc");
+        assert_eq!(Ok(Some(Op::Trim(TrimArg::new(TrimMode::Left, None, true, false)))), parse_op(&mut args));
+        assert_eq!(vec![":abc"], args.collect::<Vec<_>>());
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Left, Some(":abc".to_string()), true, false)))),
+            parse_op(&mut build_args(":ltrimc ::abc"))
+        );
+        // rtrimc
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Right, None, true, false)))),
+            parse_op(&mut build_args(":rtrimc"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Right, Some("abc".to_string()), true, false)))),
+            parse_op(&mut build_args(":rtrimc abc"))
+        );
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Right, Some("abc".to_string()), true, true)))),
+            parse_op(&mut build_args(":rtrimc abc nocase"))
+        );
+        let mut args = build_args(":rtrimc :abc");
+        assert_eq!(Ok(Some(Op::Trim(TrimArg::new(TrimMode::Right, None, true, false)))), parse_op(&mut args));
+        assert_eq!(vec![":abc"], args.collect::<Vec<_>>());
+        assert_eq!(
+            Ok(Some(Op::Trim(TrimArg::new(TrimMode::Right, Some(":abc".to_string()), true, false)))),
+            parse_op(&mut build_args(":rtrimc ::abc"))
+        );
     }
 
     #[test]

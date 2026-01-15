@@ -100,6 +100,30 @@ rp [<options> [<option_value>]] [<input_cmd>] [<op_cmd>] [...] [<output_cmd>]
                  :replace abc xyz 10
                  :replace abc xyz nocase
                  :replace abc xyz 10 nocase
+ :trim       去除首尾指定的子串。
+             :trim[ <pattern>[ nocase]]
+                 <pattern>   需要去除的子串，可选，留空则去除空白字符。
+                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+ :ltrim      去除首部指定的子串。
+             :ltrim[ <pattern>[ nocase]]
+                 <pattern>   需要去除的子串，可选，留空则去除空白字符。
+                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+ :rtrim      去除尾部指定的子串。
+             :rtrim[ <pattern>[ nocase]]
+                 <pattern>   需要去除的子串，可选，留空则去除空白字符。
+                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+ :trimc      去除首尾指定范围内的字符。
+             :trimc[ <pattern>[ nocase]]
+                 <pattern>   需要去除的字符，可选，留空则去除空白字符。
+                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+ :ltrimc     去除首部指定范围内的字符。
+             :ltrimc[ <pattern>[ nocase]]
+                 <pattern>   需要去除的字符，可选，留空则去除空白字符。
+                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+ :rtrimc     去除尾部指定范围内的字符。
+             :rtrimc[ <pattern>[ nocase]]
+                 <pattern>   需要去除的字符，可选，留空则去除空白字符。
+                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
  :uniq       去重。
              :uniq[ nocase]
                  nocase  去重时忽略大小写，可选，未指定时不忽略大小写。

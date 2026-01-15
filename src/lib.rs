@@ -1,3 +1,4 @@
+use std::iter::Peekable;
 use crate::config::Config;
 use crate::err::RpErr;
 use crate::pipe::Pipe;
@@ -9,7 +10,7 @@ mod err;
 mod fmt;
 mod help;
 mod input;
-mod op;
+pub(crate) mod op;
 mod output;
 mod parse;
 mod pipe;
@@ -74,8 +75,7 @@ impl PartialEq for Num {
 
 pub(crate) type PipeRes = Result<Pipe, RpErr>;
 
-pub fn run() -> Result<(), RpErr> {
-    let mut args = std::env::args().skip(1).peekable();
+pub fn run(mut args: Peekable<impl Iterator<Item = String>>) -> Result<(), RpErr> {
     let configs = parse::args::parse_configs(&mut args);
     if configs.contains(&Config::Help) {
         help::print_help(args.next());

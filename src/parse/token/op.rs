@@ -1,3 +1,4 @@
+use crate::op::trim::{TrimArg, TrimMode};
 use crate::op::{JoinInfo, Op, PeekTo, SortBy};
 use crate::parse::token::condition::parse_cond;
 use crate::parse::token::{arg, arg_exclude_cmd, general_file_info, parse_arg_as, ParserError};
@@ -5,7 +6,7 @@ use crate::{Float, Integer};
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{space1, usize};
-use nom::combinator::{map, opt, verify};
+use nom::combinator::{eof, map, opt, peek, value, verify};
 use nom::error::context;
 use nom::multi::many0;
 use nom::sequence::{delimited, preceded, terminated};
@@ -23,6 +24,7 @@ pub(in crate::parse) fn parse_ops(input: &str) -> OpsResult<'_> {
             parse_lower,
             parse_case,
             parse_replace,
+            parse_trim,
             parse_uniq,
             parse_join,
             parse_drop_while,
@@ -96,6 +98,38 @@ fn parse_replace(input: &str) -> OpResult<'_> {
     .parse(input)
 }
 
+fn parse_trim(input: &str) -> OpResult<'_> {
+    context(
+        "Op::Trim",
+        map(
+            terminated(
+                (
+                    alt((
+                        value((TrimMode::All, false), (tag_no_case(":trim"), peek(alt((space1, eof))))),
+                        value((TrimMode::Left, false), (tag_no_case(":ltrim"), peek(alt((space1, eof))))),
+                        value((TrimMode::Right, false), (tag_no_case(":rtrim"), peek(alt((space1, eof))))),
+                        value((TrimMode::All, true), (tag_no_case(":trimc"), peek(alt((space1, eof))))),
+                        value((TrimMode::Left, true), (tag_no_case(":ltrimc"), peek(alt((space1, eof))))),
+                        value((TrimMode::Right, true), (tag_no_case(":rtrimc"), peek(alt((space1, eof))))),
+                    )),
+                    opt(preceded(
+                        space1,
+                        (context("Op::Trim::<pattern>", arg_exclude_cmd), opt(preceded(space1, tag_no_case("nocase")))),
+                    )),
+                ),
+                context("Op::Trim::trailing_space1", space1), // 结尾空格
+            ),
+            |((trim_mode, char_mode), pattern_and_nocase)| match pattern_and_nocase {
+                Some((pattern, nocase)) => {
+                    Op::Trim(TrimArg::new(trim_mode, Some(pattern), char_mode, nocase.is_some()))
+                }
+                None => Op::Trim(TrimArg::new(trim_mode, None, char_mode, false)),
+            },
+        ),
+    )
+    .parse(input)
+}
+
 fn parse_uniq(input: &str) -> OpResult<'_> {
     context(
         "Op::Uniq",
@@ -129,7 +163,7 @@ fn parse_join(input: &str) -> OpResult<'_> {
                         )),
                     )),
                 ),
-                context("Op::Join::ending_space1", space1),
+                context("Op::Join::trailing_space1", space1),
             ),
             |delimiter_opt| {
                 let (join_info, batch) = if let Some((delimiter, prefix_opt)) = delimiter_opt {
@@ -298,6 +332,112 @@ mod tests {
         assert_eq!(
             parse_replace(r#":replace abc def nocase "#),
             Ok(("", Op::new_replace("abc".to_string(), "def".to_string(), None, true)))
+        );
+    }
+
+    #[test]
+    fn test_parse_trim() {
+        // trim
+        assert_eq!(parse_trim(":trim "), Ok(("", Op::Trim(TrimArg::new(TrimMode::All, None, false, false)))));
+        assert_eq!(
+            parse_trim(":trim abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::All, Some("abc".to_owned()), false, false))))
+        );
+        assert_eq!(
+            parse_trim(":trim abc nocase "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::All, Some("abc".to_owned()), false, true))))
+        );
+        assert_eq!(parse_trim(":trim :abc "), Ok((":abc ", Op::Trim(TrimArg::new(TrimMode::All, None, false, false)))));
+        assert_eq!(
+            parse_trim(":trim ::abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::All, Some(":abc".to_owned()), false, false))))
+        );
+        // ltrim
+        assert_eq!(parse_trim(":ltrim "), Ok(("", Op::Trim(TrimArg::new(TrimMode::Left, None, false, false)))));
+        assert_eq!(
+            parse_trim(":ltrim abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Left, Some("abc".to_owned()), false, false))))
+        );
+        assert_eq!(
+            parse_trim(":ltrim abc nocase "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Left, Some("abc".to_owned()), false, true))))
+        );
+        assert_eq!(
+            parse_trim(":ltrim :abc "),
+            Ok((":abc ", Op::Trim(TrimArg::new(TrimMode::Left, None, false, false))))
+        );
+        assert_eq!(
+            parse_trim(":ltrim ::abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Left, Some(":abc".to_owned()), false, false))))
+        );
+        // rtrim
+        assert_eq!(parse_trim(":rtrim "), Ok(("", Op::Trim(TrimArg::new(TrimMode::Right, None, false, false)))));
+        assert_eq!(
+            parse_trim(":rtrim abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Right, Some("abc".to_owned()), false, false))))
+        );
+        assert_eq!(
+            parse_trim(":rtrim abc nocase "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Right, Some("abc".to_owned()), false, true))))
+        );
+        assert_eq!(
+            parse_trim(":rtrim :abc "),
+            Ok((":abc ", Op::Trim(TrimArg::new(TrimMode::Right, None, false, false))))
+        );
+        assert_eq!(
+            parse_trim(":rtrim ::abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Right, Some(":abc".to_owned()), false, false))))
+        );
+        // trimc
+        assert_eq!(parse_trim(":trimc "), Ok(("", Op::Trim(TrimArg::new(TrimMode::All, None, true, false)))));
+        assert_eq!(
+            parse_trim(":trimc abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::All, Some("abc".to_owned()), true, false))))
+        );
+        assert_eq!(
+            parse_trim(":trimc abc nocase "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::All, Some("abc".to_owned()), true, true))))
+        );
+        assert_eq!(parse_trim(":trimc :abc "), Ok((":abc ", Op::Trim(TrimArg::new(TrimMode::All, None, true, false)))));
+        assert_eq!(
+            parse_trim(":trimc ::abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::All, Some(":abc".to_owned()), true, false))))
+        );
+        // ltrimc
+        assert_eq!(parse_trim(":ltrimc "), Ok(("", Op::Trim(TrimArg::new(TrimMode::Left, None, true, false)))));
+        assert_eq!(
+            parse_trim(":ltrimc abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Left, Some("abc".to_owned()), true, false))))
+        );
+        assert_eq!(
+            parse_trim(":ltrimc abc nocase "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Left, Some("abc".to_owned()), true, true))))
+        );
+        assert_eq!(
+            parse_trim(":ltrimc :abc "),
+            Ok((":abc ", Op::Trim(TrimArg::new(TrimMode::Left, None, true, false))))
+        );
+        assert_eq!(
+            parse_trim(":ltrimc ::abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Left, Some(":abc".to_owned()), true, false))))
+        );
+        // rtrimc
+        assert_eq!(parse_trim(":rtrimc "), Ok(("", Op::Trim(TrimArg::new(TrimMode::Right, None, true, false)))));
+        assert_eq!(
+            parse_trim(":rtrimc abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Right, Some("abc".to_owned()), true, false))))
+        );
+        assert_eq!(
+            parse_trim(":rtrimc abc nocase "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Right, Some("abc".to_owned()), true, true))))
+        );
+        assert_eq!(
+            parse_trim(":rtrimc :abc "),
+            Ok((":abc ", Op::Trim(TrimArg::new(TrimMode::Right, None, true, false))))
+        );
+        assert_eq!(
+            parse_trim(":rtrimc ::abc "),
+            Ok(("", Op::Trim(TrimArg::new(TrimMode::Right, Some(":abc".to_owned()), true, false))))
         );
     }
 

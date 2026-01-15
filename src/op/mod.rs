@@ -1,3 +1,5 @@
+pub(crate) mod trim;
+
 use crate::condition::Cond;
 use crate::config::{is_nocase, Config};
 use crate::err::RpErr;
@@ -13,6 +15,7 @@ use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
 use unicase::UniCase;
+use crate::op::trim::TrimArg;
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum PeekTo {
@@ -62,6 +65,31 @@ pub(crate) enum Op {
     ///                 :replace abc xyz nocase
     ///                 :replace abc xyz 10 nocase
     Replace { from: String, to: String, count: Option<usize>, nocase: bool },
+    /// :trim       去除首尾指定的子串。
+    ///             :trim[ <pattern>[ nocase]]
+    ///                 <pattern>   需要去除的子串，可选，留空则去除空白字符。
+    ///                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+    /// :ltrim      去除首部指定的子串。
+    ///             :ltrim[ <pattern>[ nocase]]
+    ///                 <pattern>   需要去除的子串，可选，留空则去除空白字符。
+    ///                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+    /// :rtrim      去除尾部指定的子串。
+    ///             :rtrim[ <pattern>[ nocase]]
+    ///                 <pattern>   需要去除的子串，可选，留空则去除空白字符。
+    ///                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+    /// :trimc      去除首尾指定范围内的字符。
+    ///             :trimc[ <pattern>[ nocase]]
+    ///                 <pattern>   需要去除的字符，可选，留空则去除空白字符。
+    ///                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+    /// :ltrimc     去除首部指定范围内的字符。
+    ///             :ltrimc[ <pattern>[ nocase]]
+    ///                 <pattern>   需要去除的字符，可选，留空则去除空白字符。
+    ///                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+    /// :rtrimc     去除尾部指定范围内的字符。
+    ///             :rtrimc[ <pattern>[ nocase]]
+    ///                 <pattern>   需要去除的字符，可选，留空则去除空白字符。
+    ///                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+    Trim(TrimArg),
     /* **************************************** 减少 **************************************** */
     /// :uniq       去重。
     ///             :uniq[ nocase]
@@ -92,11 +120,11 @@ pub(crate) enum Op {
     ///             :take <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
     Take(Cond),
-    /// :drop while       根据指定条件选择数据持续丢弃，直到条件首次不满足。
+    /// :drop while 根据指定条件选择数据持续丢弃，直到条件首次不满足。
     ///             :drop while <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
     DropWhile(Cond),
-    /// :take while       根据指定条件选择数据持续保留，直到条件首次不满足。
+    /// :take while 根据指定条件选择数据持续保留，直到条件首次不满足。
     ///             :take while <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
     TakeWhile(Cond),
@@ -223,6 +251,7 @@ impl Op {
                     }))
                 }
             }
+            Op::Trim(trim_arg) => Ok(pipe.op_map(move |s| trim_arg.trim(s))),
             Op::Uniq { nocase } => {
                 let mut seen = HashSet::new();
                 Ok(pipe.op_filter(move |item| {
@@ -251,7 +280,7 @@ impl Op {
             Op::Take(cond) => Ok(Pipe { iter: Box::new(pipe.filter(move |s| cond.test(s))) }),
             Op::DropWhile(cond) => Ok(Pipe { iter: Box::new(pipe.skip_while(move |s| cond.test(s))) }),
             Op::TakeWhile(cond) => Ok(Pipe { iter: Box::new(pipe.take_while(move |s| cond.test(s))) }),
-            Op::Count => Ok(Pipe {iter: Box::new(std::iter::once(pipe.count().to_string()))}),
+            Op::Count => Ok(Pipe { iter: Box::new(std::iter::once(pipe.count().to_string())) }),
             Op::Sort { sort_by, desc } => match sort_by {
                 SortBy::Num(def_integer, def_float) => {
                     if let Some(def) = def_integer {
