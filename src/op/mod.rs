@@ -17,26 +17,6 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use unicase::UniCase;
 
-#[derive(Debug, Eq, PartialEq)]
-pub(crate) enum CaseArg {
-    Upper,
-    Lower,
-    Switch,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub(crate) enum PeekArg {
-    StdOut,
-    File { file: String, append: bool, crlf: Option<bool> },
-}
-
-#[derive(Debug, PartialEq)]
-pub(crate) enum SortBy {
-    Num(Option<Integer>, Option<Float>),
-    Text(bool /*nocase*/),
-    Random,
-}
-
 #[derive(Debug, PartialEq, CmdHelp)]
 pub(crate) enum Op {
     /* **************************************** 访问 **************************************** */
@@ -120,19 +100,16 @@ pub(crate) enum Op {
     /// :drop       根据指定条件选择数据丢弃，其他数据保留。
     ///             :drop <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
-    Drop(Cond),
     /// :take       根据指定条件选择数据保留，其他数据丢弃。
     ///             :take <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
-    Take(Cond),
     /// :drop while 根据指定条件选择数据持续丢弃，直到条件首次不满足。
     ///             :drop while <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
-    DropWhile(Cond),
     /// :take while 根据指定条件选择数据持续保留，直到条件首次不满足。
     ///             :take while <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
-    TakeWhile(Cond),
+    TakeDrop { mode: TakeDropMode, cond: Cond },
     /// :count      统计数据数量。
     ///             :count
     Count,
@@ -168,6 +145,9 @@ impl Op {
     }
     pub(crate) fn new_join(join_info: JoinInfo, count: Option<usize>) -> Op {
         Op::Join { join_info, batch: count }
+    }
+    pub(crate) fn new_take_drop(mode: TakeDropMode, cond: Cond) -> Op {
+        Op::TakeDrop { mode, cond }
     }
     pub(crate) fn new_sort(sort_by: SortBy, desc: bool) -> Op {
         Op::Sort { sort_by, desc }
@@ -266,10 +246,12 @@ impl Op {
                     ))),
                 })
             }
-            Op::Drop(cond) => Ok(Pipe { iter: Box::new(pipe.filter(move |s| !cond.test(s))) }),
-            Op::Take(cond) => Ok(Pipe { iter: Box::new(pipe.filter(move |s| cond.test(s))) }),
-            Op::DropWhile(cond) => Ok(Pipe { iter: Box::new(pipe.skip_while(move |s| cond.test(s))) }),
-            Op::TakeWhile(cond) => Ok(Pipe { iter: Box::new(pipe.take_while(move |s| cond.test(s))) }),
+            Op::TakeDrop { mode, cond } => match mode {
+                TakeDropMode::Take => Ok(Pipe { iter: Box::new(pipe.filter(move |s| cond.test(s))) }),
+                TakeDropMode::Drop => Ok(Pipe { iter: Box::new(pipe.filter(move |s| !cond.test(s))) }),
+                TakeDropMode::TakeWhile => Ok(Pipe { iter: Box::new(pipe.take_while(move |s| cond.test(s))) }),
+                TakeDropMode::DropWhile => Ok(Pipe { iter: Box::new(pipe.skip_while(move |s| cond.test(s))) }),
+            },
             Op::Count => Ok(Pipe { iter: Box::new(std::iter::once(pipe.count().to_string())) }),
             Op::Sort { sort_by, desc } => match sort_by {
                 SortBy::Num(def_integer, def_float) => {
@@ -366,7 +348,35 @@ fn replace_with_count_and_nocase<'a>(
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Default)]
+#[derive(Debug, PartialEq)]
+pub(crate) enum CaseArg {
+    Upper,
+    Lower,
+    Switch,
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) enum PeekArg {
+    StdOut,
+    File { file: String, append: bool, crlf: Option<bool> },
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) enum SortBy {
+    Num(Option<Integer>, Option<Float>),
+    Text(bool /*nocase*/),
+    Random,
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) enum TakeDropMode {
+    Take,
+    Drop,
+    TakeWhile,
+    DropWhile,
+}
+
+#[derive(Debug, PartialEq, Default)]
 pub(crate) struct JoinInfo {
     pub(crate) delimiter: String,
     pub(crate) prefix: String,

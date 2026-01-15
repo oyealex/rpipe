@@ -1,6 +1,6 @@
 use crate::err::RpErr;
 use crate::op::trim::{TrimArg, TrimMode};
-use crate::op::{CaseArg, JoinInfo, Op, PeekArg, SortBy};
+use crate::op::{CaseArg, JoinInfo, Op, PeekArg, SortBy, TakeDropMode};
 use crate::parse::args::condition::parse_cond;
 use crate::parse::args::{
     parse_arg, parse_as, parse_general_file_info, parse_opt_arg, parse_positive_usize, parse_tag_nocase,
@@ -120,9 +120,9 @@ fn parse_drop_or_drop_while(args: &mut Peekable<impl Iterator<Item = String>>) -
         && maybe_while.eq_ignore_ascii_case("while")
     {
         args.next();
-        Ok(Op::DropWhile(parse_cond(args, ":drop while")?))
+        Ok(Op::new_take_drop(TakeDropMode::DropWhile, parse_cond(args, ":drop while")?))
     } else {
-        Ok(Op::Drop(parse_cond(args, ":drop")?))
+        Ok(Op::new_take_drop(TakeDropMode::Drop, parse_cond(args, ":drop")?))
     }
 }
 
@@ -132,9 +132,9 @@ fn parse_take_or_take_while(args: &mut Peekable<impl Iterator<Item = String>>) -
         && maybe_while.eq_ignore_ascii_case("while")
     {
         args.next();
-        Ok(Op::TakeWhile(parse_cond(args, ":take while")?))
+        Ok(Op::new_take_drop(TakeDropMode::TakeWhile, parse_cond(args, ":take while")?))
     } else {
-        Ok(Op::Take(parse_cond(args, ":take")?))
+        Ok(Op::new_take_drop(TakeDropMode::Take, parse_cond(args, ":take")?))
     }
 }
 

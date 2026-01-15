@@ -1,5 +1,5 @@
 use crate::op::trim::{TrimArg, TrimMode};
-use crate::op::{CaseArg, JoinInfo, Op, PeekArg, SortBy};
+use crate::op::{CaseArg, JoinInfo, Op, PeekArg, SortBy, TakeDropMode};
 use crate::parse::token::condition::parse_cond;
 use crate::parse::token::{arg, arg_exclude_cmd, general_file_info, parse_arg_as, ParserError};
 use crate::{Float, Integer};
@@ -25,10 +25,7 @@ pub(in crate::parse) fn parse_ops(input: &str) -> OpsResult<'_> {
             parse_trim,
             parse_uniq,
             parse_join,
-            parse_drop_while,
-            parse_take_while,
-            parse_drop,
-            parse_take,
+            parse_take_drop,
             parse_count,
             parse_sort,
         ))),
@@ -188,32 +185,25 @@ fn parse_join(input: &str) -> OpResult<'_> {
     .parse(input)
 }
 
-fn parse_drop_while(input: &str) -> OpResult<'_> {
+fn parse_take_drop(input: &str) -> OpResult<'_> {
     context(
-        "Op::DropWhile",
-        map(preceded((tag_no_case(":drop"), space1, tag_no_case("while"), space1), parse_cond), |cond| {
-            Op::DropWhile(cond)
-        }),
+        "Op::TakeDrop",
+        alt((
+            map(preceded((tag_no_case(":take"), space1, tag_no_case("while"), space1), parse_cond), |cond| {
+                Op::new_take_drop(TakeDropMode::TakeWhile, cond)
+            }),
+            map(preceded((tag_no_case(":drop"), space1, tag_no_case("while"), space1), parse_cond), |cond| {
+                Op::new_take_drop(TakeDropMode::DropWhile, cond)
+            }),
+            map(preceded((tag_no_case(":take"), space1), parse_cond), |cond| {
+                Op::new_take_drop(TakeDropMode::Take, cond)
+            }),
+            map(preceded((tag_no_case(":drop"), space1), parse_cond), |cond| {
+                Op::new_take_drop(TakeDropMode::Drop, cond)
+            }),
+        )),
     )
     .parse(input)
-}
-
-fn parse_take_while(input: &str) -> OpResult<'_> {
-    context(
-        "Op::TakeWhile",
-        map(preceded((tag_no_case(":take"), space1, tag_no_case("while"), space1), parse_cond), |cond| {
-            Op::TakeWhile(cond)
-        }),
-    )
-    .parse(input)
-}
-
-fn parse_drop(input: &str) -> OpResult<'_> {
-    context("Op::Drop", map(preceded((tag_no_case(":drop"), space1), parse_cond), |cond| Op::Drop(cond))).parse(input)
-}
-
-fn parse_take(input: &str) -> OpResult<'_> {
-    context("Op::Take", map(preceded((tag_no_case(":take"), space1), parse_cond), |cond| Op::Take(cond))).parse(input)
 }
 
 fn parse_count(input: &str) -> OpResult<'_> {
@@ -465,27 +455,23 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_drop_while() {
-        assert_eq!(parse_drop_while(":drop while num "), Ok(("", Op::DropWhile(Cond::new_number(None, false)))));
-        assert!(parse_drop_while(":drop num ").is_err());
-    }
-
-    #[test]
-    fn test_parse_take_while() {
-        assert_eq!(parse_take_while(":take while num "), Ok(("", Op::TakeWhile(Cond::new_number(None, false)))));
-        assert!(parse_take_while(":take num ").is_err());
-    }
-
-    #[test]
-    fn test_parse_drop() {
-        assert_eq!(parse_drop(":drop num "), Ok(("", Op::Drop(Cond::new_number(None, false)))));
-        assert!(parse_drop(":drop while num ").is_err());
-    }
-
-    #[test]
-    fn test_parse_take() {
-        assert_eq!(parse_take(":take num "), Ok(("", Op::Take(Cond::new_number(None, false)))));
-        assert!(parse_take(":take while num ").is_err());
+    fn test_parse_take_drop() {
+        assert_eq!(
+            parse_take_drop(":take while num "),
+            Ok(("", Op::new_take_drop(TakeDropMode::TakeWhile, Cond::new_number(None, false))))
+        );
+        assert_eq!(
+            parse_take_drop(":drop while num "),
+            Ok(("", Op::new_take_drop(TakeDropMode::DropWhile, Cond::new_number(None, false))))
+        );
+        assert_eq!(
+            parse_take_drop(":take num "),
+            Ok(("", Op::new_take_drop(TakeDropMode::Take, Cond::new_number(None, false))))
+        );
+        assert_eq!(
+            parse_take_drop(":drop num "),
+            Ok(("", Op::new_take_drop(TakeDropMode::Drop, Cond::new_number(None, false))))
+        );
     }
 
     #[test]
