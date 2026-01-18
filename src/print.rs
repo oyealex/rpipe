@@ -25,3 +25,31 @@ macro_rules! println_err {
         }
     };
 }
+
+#[macro_export]
+macro_rules! println_info {
+    () => {};
+    ($($arg:tt)*) => {
+        if std::io::IsTerminal::is_terminal(&std::io::stderr()) {
+            print!("\x1b[1;34m");
+            print!($($arg)*);
+            println!("\x1b[0m");
+        } else {
+            println!($($arg)*);
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! println_notice {
+    () => {};
+    ($($arg:tt)*) => {
+        if std::io::IsTerminal::is_terminal(&std::io::stderr()) {
+            print!("\x1b[35m");
+            print!($($arg)*);
+            println!("\x1b[0m");
+        } else {
+            println!($($arg)*);
+        }
+    };
+}

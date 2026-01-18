@@ -2,7 +2,7 @@ use crate::err::RpErr;
 use crate::input::Input;
 use crate::op::Op;
 use crate::output::Output;
-use crate::parse;
+use crate::{parse, println_info, println_notice};
 use cmd_help::CmdHelp;
 use itertools::Itertools;
 use std::iter::Peekable;
@@ -51,12 +51,12 @@ pub(crate) fn skip_err(configs: &[Config]) -> bool {
 }
 
 pub(crate) fn print_pipe_info(input: &Input, ops: &Vec<Op>, output: &Output) {
-    println!("Input:");
-    println!("    {:?}", input);
-    println!("Op:");
-    println!("{}", ops.iter().map(|op| format!("    {:?}", op)).join("\n"));
-    println!("Output:");
-    println!("    {:?}", output);
+    println_info!("Input:");
+    println_notice!("  {:?}", input);
+    println_info!("Op:");
+    println_notice!("{}", ops.iter().enumerate().map(|(idx, op)| format!("  {:>02} {:?}", idx + 1, op)).join("\n"));
+    println_info!("Output:");
+    println_notice!("  {:?}", output);
 }
 
 pub(crate) fn parse_eval_token(

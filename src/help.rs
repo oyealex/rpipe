@@ -76,7 +76,7 @@ fn print_output_help() {
 }
 
 fn print_fmt_help() {
-    println!("\n格式化：（TODO）"); // TODO 2026-01-11 23:42
+    println!("\n格式化：（TODO）"); // TODO 2026-01-11 23:42 补充格式化内容相关的描述
 }
 
 fn print_condition_help() {

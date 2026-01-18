@@ -10,7 +10,7 @@ use nom::sequence::terminated;
 use nom::{IResult, Parser};
 
 pub(crate) fn parse_configs(input: &str) -> IResult<&str, Vec<Config>, ParserError<'_>> {
-    many0(parse_config).parse(input)
+    context("Config", many0(parse_config)).parse(input)
 }
 
 fn parse_config(input: &str) -> IResult<&str, Config, ParserError<'_>> {

@@ -129,14 +129,12 @@ impl Input {
             }),
             #[cfg(windows)]
             Input::Clip => match clipboard_win::get_clipboard_string() {
-                // TODO 2026-01-05 01:02 尝试leak text，然后使用Item::Str省略内存分配
                 Ok(text) => {
                     Ok(Pipe { iter: Box::new(text.lines().map(|s| s.to_string()).collect::<Vec<_>>().into_iter()) })
                 }
                 Err(err) => Err(RpErr::ReadClipboardTextErr(err.to_string())),
             },
             Input::Of { values } => Ok(Pipe { iter: Box::new(values.into_iter()) }),
-            // TODO 2025-12-28 21:59 如果gen没有指定end，设定为Unbounded。
             Input::Gen { start, end, step, fmt } => {
                 if let Some(fmt) = fmt {
                     Ok(Pipe {

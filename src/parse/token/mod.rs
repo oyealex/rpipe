@@ -47,7 +47,6 @@ pub(in crate::parse) fn parse_num(input: &str) -> IResult<&str, Num, ParserError
     .parse(input)
 }
 
-// TODO 2026-01-10 02:24 完善上下文
 #[allow(unused)]
 pub(crate) fn parse(token: &str) -> Result<(&str, (Vec<Config>, Input, Vec<Op>, Output)), RpErr> {
     let (token, configs) = parse_configs(token).map_err(|err| RpErr::ParseConfigTokenErr(err.to_string()))?;

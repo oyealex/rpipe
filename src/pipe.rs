@@ -1,6 +1,6 @@
 pub(crate) struct Pipe {
     pub(crate) iter: Box<dyn Iterator<Item = String>>,
-    // TODO 2026-01-10 01:27 增加特征描述
+    // TODO 2026-01-10 01:27 增加特征描述和后续操作的优化
 }
 
 impl Iterator for Pipe {
