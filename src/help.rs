@@ -1,4 +1,4 @@
-use crate::condition::Cond;
+use crate::condition::Select;
 use crate::config::Config;
 use crate::err::RpErr;
 use crate::input::Input;
@@ -81,7 +81,7 @@ fn print_fmt_help() {
 
 fn print_condition_help() {
     println!("\n条件表达式：");
-    for (_, help) in Cond::all_help() {
+    for (_, help) in Select::all_help() {
         println!("{}", help);
     }
 }

@@ -144,9 +144,14 @@ fn build_args(args_line: &'static str) -> Peekable<impl Iterator<Item = String>>
     args_line
         .split(' ')
         .into_iter()
-        .map(|s| crate::parse::token::arg(s).ok().map(|(remaining, mut res)| {
-            res.push_str(remaining);
-            res
-        }).unwrap_or_else(|| s.to_owned()))
+        .map(|s| {
+            crate::parse::token::arg(s)
+                .ok()
+                .map(|(remaining, mut res)| {
+                    res.push_str(remaining);
+                    res
+                })
+                .unwrap_or_else(|| s.to_owned())
+        })
         .peekable()
 }

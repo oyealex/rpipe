@@ -1,7 +1,7 @@
 mod replace;
 pub(crate) mod trim;
 
-use crate::condition::Cond;
+use crate::condition::Condition;
 use crate::config::{is_nocase, Config};
 use crate::err::RpErr;
 use crate::op::replace::ReplaceArg;
@@ -111,7 +111,7 @@ pub(crate) enum Op {
     /// :take while 根据指定条件选择数据持续保留，直到条件首次不满足。
     ///             :take while <condition>
     ///                 <condition> 条件表达式，参考`-h cond`或`-h condition`
-    TakeDrop { mode: TakeDropMode, cond: Cond },
+    TakeDrop { mode: TakeDropMode, cond: Condition },
     /// :count      统计数据数量。
     ///             :count
     Count,
@@ -148,7 +148,7 @@ impl Op {
     pub(crate) fn new_join(join_info: JoinInfo, count: Option<usize>) -> Op {
         Op::Join { join_info, batch: count }
     }
-    pub(crate) fn new_take_drop(mode: TakeDropMode, cond: Cond) -> Op {
+    pub(crate) fn new_take_drop(mode: TakeDropMode, cond: Condition) -> Op {
         Op::TakeDrop { mode, cond }
     }
     pub(crate) fn new_sort(sort_by: SortBy, desc: bool) -> Op {

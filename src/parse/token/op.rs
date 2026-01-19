@@ -278,7 +278,7 @@ fn parse_sort(input: &str) -> OpResult<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::condition::Cond;
+    use crate::condition::{Condition, Select};
 
     #[test]
     fn test_parse_case() {
@@ -466,19 +466,19 @@ mod tests {
     fn test_parse_take_drop() {
         assert_eq!(
             parse_take_drop(":take while num "),
-            Ok(("", Op::new_take_drop(TakeDropMode::TakeWhile, Cond::new_number(None, false))))
+            Ok(("", Op::new_take_drop(TakeDropMode::TakeWhile, Condition::new(Select::Num { integer: None }, false))))
         );
         assert_eq!(
             parse_take_drop(":drop while num "),
-            Ok(("", Op::new_take_drop(TakeDropMode::DropWhile, Cond::new_number(None, false))))
+            Ok(("", Op::new_take_drop(TakeDropMode::DropWhile, Condition::new(Select::Num { integer: None }, false))))
         );
         assert_eq!(
             parse_take_drop(":take num "),
-            Ok(("", Op::new_take_drop(TakeDropMode::Take, Cond::new_number(None, false))))
+            Ok(("", Op::new_take_drop(TakeDropMode::Take, Condition::new(Select::Num { integer: None }, false))))
         );
         assert_eq!(
             parse_take_drop(":drop num "),
-            Ok(("", Op::new_take_drop(TakeDropMode::Drop, Cond::new_number(None, false))))
+            Ok(("", Op::new_take_drop(TakeDropMode::Drop, Condition::new(Select::Num { integer: None }, false))))
         );
     }
 
