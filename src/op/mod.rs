@@ -76,6 +76,15 @@ pub(crate) enum Op {
     ///             :rtrimc[ <pattern>[ nocase]]
     ///                 <pattern>   需要去除的字符，可选，留空则去除空白字符。
     ///                 nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+    /// :trimr      去除首尾满足指定正则的字串。
+    ///             :trimr <regex>
+    ///                 <regex>     需要去除的正则，必选。
+    /// :ltrimr     去除首部满足指定正则的字串。
+    ///             :ltrimr <regex>
+    ///                 <regex>     需要去除的正则，必选。
+    /// :rtrimr     去除尾部满足指定正则的字串。
+    ///             :rtrimr <regex>
+    ///                 <regex>     需要去除的正则，必选。
     Trim(TrimArg),
     /* **************************************** 减少 **************************************** */
     /// :uniq       去重。

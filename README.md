@@ -129,6 +129,15 @@ Usage: rp [<options> [<option_value>]] [<input_cmd>] [<op_cmd>[ ...]] [<output_c
              :rtrimc[ <pattern>[ nocase]]
                  <pattern>   需要去除的字符，可选，留空则去除空白字符。
                  nocase      忽略大小写，可选，仅当指定了<pattern>时生效。
+ :trimr      去除首尾满足指定正则的字串。
+             :trimr <regex>
+                 <regex>     需要去除的正则，必选。
+ :ltrimr     去除首部满足指定正则的字串。
+             :ltrimr <regex>
+                 <regex>     需要去除的正则，必选。
+ :rtrimr     去除尾部满足指定正则的字串。
+             :rtrimr <regex>
+                 <regex>     需要去除的正则，必选。
  :uniq       去重。
              :uniq[ nocase]
                  nocase  去重时忽略大小写，可选，未指定时不忽略大小写。
@@ -210,49 +219,57 @@ Usage: rp [<options> [<option_value>]] [<input_cmd>] [<op_cmd>[ ...]] [<output_c
 格式化：（TODO）
 
 条件表达式：
- len [!][<min>],[<max>]
-     按照字符串长度范围选择，范围表达式最小值和最大值至少指定其一，支持可选的否定。
+ [not] len [<min>],[<max>]
+     按照字符串长度范围选择，范围表达式最小值和最大值至少指定其一，支持可选否定。
      例如：
          len 2,
          len 2,5
          len ,5
-         len !,5
-         len !2,5
- len [!]=<len>
-     按照字符串特定长度选择，支持可选的否定。
+         not len ,5
+         not len 2,5
+ [not] len <len>
+     按照字符串特定长度选择，支持可选否定。
      例如：
-         len =3
-         len !=3
- num [!][<min>],[<max>]
-     按照数值范围选择，范围表达式最小值和最大值至少指定其一，支持可选的否定。
+         len 3
+         not len 3
+ [not] num [<min>],[<max>]
+     按照数值范围选择，范围表达式最小值和最大值至少指定其一，支持可选否定。
      如果无法解析为数则不选择。
      例如：
          num 2,5
          num -2.1,5
          num 2,5.3
          num ,5.3
-         num !1,5.3
- num [!]=<spec>
-     按照数值特定值选择，支持可选的否定。
+         not num 1,5.3
+ [not] num <spec>
+     按照数值特定值选择，支持可选否定。
      如果无法解析为数则不选择。
      例如：
-         num =3
-         num =3.3
-         num !=3.3
- num[ [!][integer|float]]
-     按照整数或浮点数选择，如果不指定则选择数值数据，支持可选的否定。
+         num 3
+         num 3.3
+         not num 3.3
+ [not] num[ [integer|float]]
+     按照整数或浮点数选择，如果不指定则选择数值数据，支持可选否定。
      例如：
          num
          num integer
          num float
-         num !
-         num !integer
-         num !float
- upper|lower
-     选择全部为大写或小写字符的数据，不支持大小写的字符总是满足。
- empty|blank
-     选择没有任何字符或全部为空白字符的数据。
- reg <exp>
+         not num
+         not num integer
+         not num float
+ [not] upper
+     选择全部为ASCII大写字符的数据，包括空字符串和不支持大小写的字符。
+ [not] lower
+     选择全部为ASCII小写字符的数据，包括空字符串和不支持大小写的字符。
+ [not] ascii
+     选择全部为ASCII字符的数据，包括空字符串。
+ [not] nonascii
+     选择全部不为ASCII字符的数据，包括空字符串。
+ [not] empty
+     选择空字符串数据。
+ [not] blank
+     选择全部为空白字符的数据，不包括空字符串。
+ [not] reg <exp>
      选择匹配给定正则表达式的数据。
      <exp>   正则表达式，必选。
      例如：

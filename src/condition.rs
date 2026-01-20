@@ -92,7 +92,7 @@ pub(crate) enum Select {
     ///     选择空字符串数据。
     /// [not] blank
     ///     选择全部为空白字符的数据，不包括空字符串。
-    Text{mode: TextSelectMode},
+    Text { mode: TextSelectMode },
     /// [not] reg <exp>
     ///     选择匹配给定正则表达式的数据。
     ///     <exp>   正则表达式，必选。
@@ -167,17 +167,15 @@ impl Select {
                     }
                 }
                 None => input.parse::<Float>().map_or(false, |v| v.is_finite()),
-            }
-            Select::Text { mode } => {
-                match mode {
-                    TextSelectMode::Upper => !input.chars().any(|c| c.is_lowercase()),
-                    TextSelectMode::Lower => !input.chars().any(|c| c.is_uppercase()),
-                    TextSelectMode::Ascii => input.is_ascii(),
-                    TextSelectMode::NonAscii => input.chars().all(|c| !c.is_ascii()),
-                    TextSelectMode::Empty => input.is_empty(),
-                    TextSelectMode::Blank => input.chars().all(|c| c.is_whitespace()),
-                }
-            }
+            },
+            Select::Text { mode } => match mode {
+                TextSelectMode::Upper => !input.chars().any(|c| c.is_lowercase()),
+                TextSelectMode::Lower => !input.chars().any(|c| c.is_uppercase()),
+                TextSelectMode::Ascii => input.is_ascii(),
+                TextSelectMode::NonAscii => input.chars().all(|c| !c.is_ascii()),
+                TextSelectMode::Empty => input.is_empty(),
+                TextSelectMode::Blank => input.chars().all(|c| c.is_whitespace()),
+            },
             Select::RegMatch { regex } => regex.is_match(input),
         }
     }

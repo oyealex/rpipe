@@ -289,7 +289,10 @@ mod tests {
 
     #[test]
     fn test_parse_cond_ascii() {
-        assert_eq!(parse_cond(&mut build_args("ascii "), ""), Ok(Condition::new(Select::Text { mode: TextSelectMode::Ascii }, false)));
+        assert_eq!(
+            parse_cond(&mut build_args("ascii "), ""),
+            Ok(Condition::new(Select::Text { mode: TextSelectMode::Ascii }, false))
+        );
         assert_eq!(
             parse_cond(&mut build_args("not ascii "), ""),
             Ok(Condition::new(Select::Text { mode: TextSelectMode::Ascii }, true))

@@ -107,19 +107,20 @@ pub(in crate::parse) fn parse_cond_num(input: &str) -> IResult<&str, bool, Parse
 pub(in crate::parse) fn parse_cond_text(input: &str) -> IResult<&str, Condition, ParserError<'_>> {
     context(
         "Cond::Text",
-        map((opt((tag_no_case("not"), space1)), alt((
-            value(TextSelectMode::Upper, tag_no_case("upper")),
-            value(TextSelectMode::Lower, tag_no_case("lower")),
-            value(TextSelectMode::Ascii, tag_no_case("ascii")),
-            value(TextSelectMode::NonAscii, tag_no_case("nonascii")),
-            value(TextSelectMode::Empty, tag_no_case("empty")),
-            value(TextSelectMode::Blank, tag_no_case("blank")),
-        ))), |(not_opt, mode)| {
-            Condition::new(
-                Select::Text { mode },
-                not_opt.is_some(),
-            )
-        }),
+        map(
+            (
+                opt((tag_no_case("not"), space1)),
+                alt((
+                    value(TextSelectMode::Upper, tag_no_case("upper")),
+                    value(TextSelectMode::Lower, tag_no_case("lower")),
+                    value(TextSelectMode::Ascii, tag_no_case("ascii")),
+                    value(TextSelectMode::NonAscii, tag_no_case("nonascii")),
+                    value(TextSelectMode::Empty, tag_no_case("empty")),
+                    value(TextSelectMode::Blank, tag_no_case("blank")),
+                )),
+            ),
+            |(not_opt, mode)| Condition::new(Select::Text { mode }, not_opt.is_some()),
+        ),
     )
     .parse(input)
 }
