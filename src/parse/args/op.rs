@@ -3,8 +3,9 @@ use crate::op::trim::{TrimArg, TrimPos};
 use crate::op::{CaseArg, JoinInfo, Op, PeekArg, SortBy, TakeDropMode};
 use crate::parse::args::condition::parse_cond;
 use crate::parse::args::{
-    parse_arg, parse_as, parse_general_file_info, parse_opt_arg, parse_positive_usize, parse_tag_nocase,
+    parse_arg, parse_as, parse_general_file_info, parse_opt_arg, parse_positive_usize, parse_tag_nocase, parse_usize,
 };
+use crate::parse::token::parse_usize_range;
 use crate::{Float, Integer};
 use std::iter::Peekable;
 
@@ -35,6 +36,9 @@ fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Option<
                 ":trimr" => Some(parse_trim_regex(":trimr", TrimPos::Both, args)?),
                 ":ltrimr" => Some(parse_trim_regex(":ltrimr", TrimPos::Head, args)?),
                 ":rtrimr" => Some(parse_trim_regex(":rtrimr", TrimPos::Tail, args)?),
+                ":limit" => Some(parse_limit(args)?),
+                ":skip" => Some(parse_skip(args)?),
+                ":slice" => Some(parse_slice(args)?),
                 ":uniq" => Some(parse_uniq(args)?),
                 ":join" => Some(parse_join(args)?),
                 ":drop" => Some(parse_drop_or_drop_while(args)?),
@@ -101,10 +105,37 @@ fn parse_trim_regex(
     }
 }
 
+fn parse_limit(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
+    args.next();
+    let count = parse_usize(":limit", "count", args)?;
+    Ok(Op::Slice { ranges: if count == 0 { vec![] } else { vec![(None, Some(count - 1))] } })
+}
+
+fn parse_skip(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
+    args.next();
+    let count = parse_usize(":skip", "count", args)?;
+    Ok(Op::Slice { ranges: vec![(Some(count), None)] })
+}
+
+fn parse_slice(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
+    args.next();
+    let mut ranges = vec![];
+    while let Some(arg) = args.peek()
+        && let Ok((remaining, range)) = parse_usize_range(arg)
+        && remaining.is_empty()
+    {
+        args.next();
+        if !matches!(range, (Some(s), Some(e)) if s > e) {
+            ranges.push(range);
+        }
+    }
+    if ranges.is_empty() { Err(RpErr::MissingArg { cmd: ":slice", arg: "range" }) } else { Ok(Op::Slice { ranges }) }
+}
+
 fn parse_uniq(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
     args.next();
     let nocase = parse_tag_nocase(args, "nocase");
-    Ok(Op::Uniq(nocase))
+    Ok(Op::Uniq { nocase })
 }
 
 fn parse_join(args: &mut Peekable<impl Iterator<Item = String>>) -> Result<Op, RpErr> {
@@ -212,11 +243,11 @@ mod tests {
     #[test]
     fn test_parse_peek() {
         let mut args = build_args(":uniq");
-        assert_eq!(Ok(Some(Op::Uniq(false))), parse_op(&mut args));
+        assert_eq!(Ok(Some(Op::Uniq { nocase: false })), parse_op(&mut args));
         assert!(args.next().is_none());
 
         let mut args = build_args(":uniq nocase");
-        assert_eq!(Ok(Some(Op::Uniq(true))), parse_op(&mut args));
+        assert_eq!(Ok(Some(Op::Uniq { nocase: true })), parse_op(&mut args));
         assert!(args.next().is_none());
     }
 
@@ -391,13 +422,42 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_slice() {
+        // limit
+        assert!(parse_op(&mut build_args(":limit ")).is_err());
+        assert!(parse_op(&mut build_args(":limit -1 ")).is_err());
+        assert_eq!(parse_op(&mut build_args(":limit 0 ")), Ok(Some(Op::Slice { ranges: vec![] })));
+        assert_eq!(parse_op(&mut build_args(":limit 5 ")), Ok(Some(Op::Slice { ranges: vec![(None, Some(4))] })));
+        // skip
+        assert!(parse_op(&mut build_args(":skip ")).is_err());
+        assert!(parse_op(&mut build_args(":skip -1 ")).is_err());
+        assert_eq!(parse_op(&mut build_args(":skip 0 ")), Ok(Some(Op::Slice { ranges: vec![(Some(0), None)] })));
+        assert_eq!(parse_op(&mut build_args(":skip 5 ")), Ok(Some(Op::Slice { ranges: vec![(Some(5), None)] })));
+        // slice
+        assert!(parse_op(&mut build_args(":slice ")).is_err());
+        assert!(parse_op(&mut build_args(":slice -1,2 ")).is_err());
+        assert_eq!(parse_op(&mut build_args(":slice 0,5 ")), Ok(Some(Op::Slice { ranges: vec![(Some(0), Some(5))] })));
+        let mut args = build_args(":slice 0,5 -1,2 ");
+        assert_eq!(parse_op(&mut args), Ok(Some(Op::Slice { ranges: vec![(Some(0), Some(5))] })));
+        assert_eq!(vec!["-1,2"], args.collect::<Vec<_>>());
+        assert_eq!(
+            parse_op(&mut build_args(":slice 0,5 7,10 3,9 ")),
+            Ok(Some(Op::Slice { ranges: vec![(Some(0), Some(5)), (Some(7), Some(10)), (Some(3), Some(9))] }))
+        );
+        assert_eq!(
+            parse_op(&mut build_args(":slice 0,5 7,3 7,10 ")),
+            Ok(Some(Op::Slice { ranges: vec![(Some(0), Some(5)), (Some(7), Some(10))] }))
+        );
+    }
+
+    #[test]
     fn test_parse_uniq() {
         let mut args = build_args(":uniq");
-        assert_eq!(Ok(Some(Op::Uniq(false))), parse_op(&mut args));
+        assert_eq!(Ok(Some(Op::Uniq { nocase: false })), parse_op(&mut args));
         assert!(args.next().is_none());
 
         let mut args = build_args(":uniq nocase");
-        assert_eq!(Ok(Some(Op::Uniq(true))), parse_op(&mut args));
+        assert_eq!(Ok(Some(Op::Uniq { nocase: true })), parse_op(&mut args));
         assert!(args.next().is_none());
     }
 

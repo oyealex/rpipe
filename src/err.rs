@@ -4,44 +4,44 @@ use thiserror::Error;
 
 #[derive(Error, Debug, Eq, PartialEq, CmdHelp)]
 pub enum RpErr {
-    /// 1       解析配置Token失败。
-    #[error("[ParseConfigTokenErr:1] Invalid args: {0}")]
+    ///  1      解析配置Token失败。
+    #[error("[ParseConfigTokenErr:1] Invalid args: {0:?}")]
     ParseConfigTokenErr(String),
 
-    /// 2       解析输入Token失败。
-    #[error("[ParseInputTokenErr:2] Invalid args: {0}")]
+    ///  2      解析输入Token失败。
+    #[error("[ParseInputTokenErr:2] Invalid args: {0:?}")]
     ParseInputTokenErr(String),
 
-    /// 3       解析操作Token失败。
-    #[error("[ParseOpTokenErr:3] Invalid args: {0}")]
+    ///  3      解析操作Token失败。
+    #[error("[ParseOpTokenErr:3] Invalid args: {0:?}")]
     ParseOpTokenErr(String),
 
-    /// 4       解析输出Token失败。
-    #[error("[ParseOutputTokenErr:4] Invalid args: {0}")]
+    ///  4      解析输出Token失败。
+    #[error("[ParseOutputTokenErr:4] Invalid args: {0:?}")]
     ParseOutputTokenErr(String),
 
-    /// 5       参数解析失败。
-    #[error("[ArgParseErr:5] Unable to parse `{arg_value}` in argument `{arg}` of cmd `{cmd}`, error: {error}")]
+    ///  5      参数解析失败。
+    #[error("[ArgParseErr:5] Unable to parse {arg_value:?} in argument `{arg}` of cmd `{cmd}`, error: {error}")]
     ArgParseErr { cmd: &'static str, arg: &'static str, arg_value: String, error: String },
 
-    /// 6       命令缺少参数。
-    #[error("[MissingArg:6] Missing argument `{arg}` of cmd `{cmd}`")]
+    ///  6      命令缺少有效参数。
+    #[error("[MissingArg:6] Missing valid argument `{arg}` of cmd `{cmd}`")]
     MissingArg { cmd: &'static str, arg: &'static str },
 
-    /// 7       参数内容无法完全解析，存在剩余无法解析的内容。
-    #[error("[UnexpectedRemaining:7] Unexpected remaining value `{remaining}` in argument `{arg}` of cmd `{cmd}`")]
+    ///  7      参数内容无法完全解析，存在剩余无法解析的内容。
+    #[error("[UnexpectedRemaining:7] Unexpected remaining value {remaining:?} in argument `{arg}` of cmd `{cmd}`")]
     UnexpectedRemaining { cmd: &'static str, arg: &'static str, remaining: String },
 
-    /// 8       未知参数。
+    ///  8      未知参数。
     #[error("[UnknownArgs:8] Unknown arguments: {args:?}")]
     UnknownArgs { args: Vec<String> },
 
-    /// 9       从剪切板读取数据失败。
+    ///  9      从剪切板读取数据失败。
     #[error("[ReadClipboardTextErr:9] Read text from clipboard error: {0}")]
     ReadClipboardTextErr(String),
 
     /// 10      从文件读取数据失败。
-    #[error("[ReadFromFileErr:10] Read line `{line_no}` of file `{file}` error: {err}")]
+    #[error("[ReadFromFileErr:10] Read line {line_no} of file {file:?} error: {err}")]
     ReadFromFileErr { file: String, line_no: usize, err: String },
 
     /// 11      写入数据到剪切板失败。
@@ -49,15 +49,15 @@ pub enum RpErr {
     WriteToClipboardErr(String),
 
     /// 12      打开文件失败。
-    #[error("[OpenFileErr:12] Open output file `{file}` error: {err}")]
+    #[error("[OpenFileErr:12] Open output file {file:?} error: {err}")]
     OpenFileErr { file: String, err: String },
 
     /// 13      写入数据到文件失败。
-    #[error("[WriteToFileErr:13] Write item `{item}` to file `{file}` error: {err}")]
+    #[error("[WriteToFileErr:13] Write item {item:?} to file {file:?} error: {err}")]
     WriteToFileErr { file: String, item: String, err: String },
 
     /// 14      格式化字符串失败。
-    #[error("[FormatStringErr:14] Format string by {fmt} with `{value}` error at: {err_pos}")]
+    #[error("[FormatStringErr:14] Format string by {fmt:?} with {value:?} error at: {err_pos}")]
     FormatStringErr { fmt: String, value: String, err_pos: usize },
 
     /// 15      解析正则表达式失败。
@@ -68,9 +68,9 @@ pub enum RpErr {
     #[error("[ParseRegexErr:16] Parse number from {0:?} err")]
     ParseNumErr(String),
 
-    /// 17      无效的转义。
-    #[error("[InvalidEscape:17] Invalid escape \"{0}\"")]
-    InvalidEscape(String),
+    /// 17      无效的非负整数参数。
+    #[error("[InvalidNonNegativeIntArg:18] Positive integer or zero is required by argument `{arg}` of cmd `{cmd}`, but it is {arg_value:?}")]
+    InvalidNonNegativeIntArg{cmd: &'static str, arg: &'static str, arg_value: String},
 }
 
 impl Termination for RpErr {
@@ -105,7 +105,7 @@ impl RpErr {
             RpErr::FormatStringErr { .. } => 14,
             RpErr::ParseRegexErr { .. } => 15,
             RpErr::ParseNumErr { .. } => 16,
-            RpErr::InvalidEscape(_) => 17,
+            RpErr::InvalidNonNegativeIntArg{..} => 17,
         }
     }
 }

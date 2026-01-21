@@ -1,17 +1,21 @@
+use crate::err::RpErr;
 use crate::op::trim::{TrimArg, TrimPos};
 use crate::op::{CaseArg, JoinInfo, Op, PeekArg, SortBy, TakeDropMode};
 use crate::parse::token::condition::parse_cond;
-use crate::parse::token::{arg, arg_end, arg_exclude_cmd, general_file_info, parse_arg_as, ParserError};
+use crate::parse::token::{
+    arg, arg_end, arg_exclude_cmd, general_file_info, parse_arg_as, parse_usize_range, ParserError,
+};
 use crate::{Float, Integer};
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{space1, usize};
 use nom::combinator::{map, opt, value, verify};
 use nom::error::context;
-use nom::multi::many0;
+use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated};
 use nom::{IResult, Parser};
 
+// TODO 2026-01-22 02:10 改造token解析结果，支持传递RpErr
 pub(in crate::parse) type OpsResult<'a> = IResult<&'a str, Vec<Op>, ParserError<'a>>;
 pub(in crate::parse) type OpResult<'a> = IResult<&'a str, Op, ParserError<'a>>;
 
@@ -23,6 +27,7 @@ pub(in crate::parse) fn parse_ops(input: &str) -> OpsResult<'_> {
             parse_case,
             parse_replace,
             parse_trim,
+            parse_slice,
             parse_uniq,
             parse_join,
             parse_take_drop,
@@ -145,6 +150,47 @@ fn parse_trim(input: &str) -> OpResult<'_> {
     .parse(input)
 }
 
+fn parse_slice(input: &str) -> OpResult<'_> {
+    context(
+        "Op::Slice",
+        terminated(
+            alt((
+                context(
+                    "Op::Slice::limit",
+                    map(preceded((tag_no_case(":limit"), space1), context("<count>", usize)), |count| Op::Slice {
+                        ranges: if count == 0 { vec![] } else { vec![(None, Some(count - 1))] },
+                    }),
+                ),
+                context(
+                    "Op::Slice::skip",
+                    map(preceded((tag_no_case(":skip"), space1), context("<count>", usize)), |count| Op::Slice {
+                        ranges: vec![(Some(count), None)],
+                    }),
+                ),
+                context(
+                    "Op::Slice::slice",
+                    map(
+                        preceded(tag_no_case(":slice"), context("<range>", many1(preceded(space1, parse_usize_range)))),
+                        |ranges| {
+                            let ranges = ranges
+                                .into_iter()
+                                // 移除无效范围
+                                .filter(|r| !matches!(r, (Some(s), Some(e)) if s > e))
+                                .collect::<Vec<_>>();
+                            if ranges.is_empty() {
+                                RpErr::MissingArg { cmd: ":slice", arg: "range" }.termination();
+                            }
+                            Op::Slice { ranges }
+                        },
+                    ),
+                ),
+            )),
+            context("(trailing_space1)", space1), // 结尾空格
+        ),
+    )
+    .parse(input)
+}
+
 fn parse_uniq(input: &str) -> OpResult<'_> {
     context(
         "Op::Uniq",
@@ -154,7 +200,7 @@ fn parse_uniq(input: &str) -> OpResult<'_> {
                 opt(preceded(space1, tag_no_case("nocase"))), // 可选：空格+nocase选项
                 context("(trailing_space1)", space1),         // 丢弃：结尾空格
             ),
-            |nocase_opt| Op::Uniq(nocase_opt.is_some()),
+            |nocase_opt| Op::Uniq { nocase: nocase_opt.is_some() },
         ),
     )
     .parse(input)
@@ -456,9 +502,35 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_slice() {
+        // limit
+        assert!(parse_slice(":limit ").is_err());
+        assert!(parse_slice(":limit -1 ").is_err());
+        assert_eq!(parse_slice(":limit 0 "), Ok(("", Op::Slice { ranges: vec![] })));
+        assert_eq!(parse_slice(":limit 5 "), Ok(("", Op::Slice { ranges: vec![(None, Some(4))] })));
+        // skip
+        assert!(parse_slice(":skip ").is_err());
+        assert!(parse_slice(":skip -1 ").is_err());
+        assert_eq!(parse_slice(":skip 0 "), Ok(("", Op::Slice { ranges: vec![(Some(0), None)] })));
+        assert_eq!(parse_slice(":skip 5 "), Ok(("", Op::Slice { ranges: vec![(Some(5), None)] })));
+        // slice
+        assert!(parse_slice(":slice ").is_err());
+        assert_eq!(parse_slice(":slice 0,5 -1,2 "), Ok(("-1,2 ", Op::Slice { ranges: vec![(Some(0), Some(5))] })));
+        assert_eq!(parse_slice(":slice 0,5 "), Ok(("", Op::Slice { ranges: vec![(Some(0), Some(5))] })));
+        assert_eq!(
+            parse_slice(":slice 0,5 7,10 3,9 "),
+            Ok(("", Op::Slice { ranges: vec![(Some(0), Some(5)), (Some(7), Some(10)), (Some(3), Some(9))] }))
+        );
+        assert_eq!(
+            parse_slice(":slice 0,5 7,3 7,10 "),
+            Ok(("", Op::Slice { ranges: vec![(Some(0), Some(5)), (Some(7), Some(10))] }))
+        );
+    }
+
+    #[test]
     fn test_parse_uniq() {
-        assert_eq!(parse_uniq(":uniq "), Ok(("", Op::Uniq(false))));
-        assert_eq!(parse_uniq(":uniq nocase "), Ok(("", Op::Uniq(true))));
+        assert_eq!(parse_uniq(":uniq "), Ok(("", Op::Uniq { nocase: false })));
+        assert_eq!(parse_uniq(":uniq nocase "), Ok(("", Op::Uniq { nocase: true })));
     }
 
     #[test]

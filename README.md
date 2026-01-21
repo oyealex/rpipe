@@ -3,7 +3,7 @@
 # Usage
 
 ```
-rp (rust pipe) - 0.3.0 - 2026-01-19 02:34:33
+rp (rust pipe) - 0.3.1 - 2026-01-22 02:18:56
 
 A command-line string processing tool implemented in Rust that supports streaming processing.
 
@@ -138,6 +138,19 @@ Usage: rp [<options> [<option_value>]] [<input_cmd>] [<op_cmd>[ ...]] [<output_c
  :rtrimr     去除尾部满足指定正则的字串。
              :rtrimr <regex>
                  <regex>     需要去除的正则，必选。
+ :limit      保留前N个数据，丢弃后续的其他数据。
+             :limit <count>
+                 <count> 需要保留的数量，必须为非负整数，必选。
+ :skip       丢弃前N个数据，保留后续的其他数据。
+             :skip <count>
+                 <count> 需要保留的数量，必须为非负整数，必选。
+ :slice      对数据切片，保留指定索引范围内的数据，丢弃其他数据。
+             支持指定多个范围，操作不会对范围进行排序或合并，严格按照给定的范围选择数据。
+             如果一个范围无效，例如范围开始值大于结束值，此范围会被丢弃。
+             :slice [ <range>][...]
+                 <range> 切片范围，格式：<start>,<end>，如果不指定任何范围则丢弃全部数据。
+                     <start> 范围起始索引，包含，与<end>至少指定一个。
+                     <end>   范围起始索引，包含，与<start>至少指定一个。
  :uniq       去重。
              :uniq[ nocase]
                  nocase  去重时忽略大小写，可选，未指定时不忽略大小写。
@@ -276,15 +289,15 @@ Usage: rp [<options> [<option_value>]] [<input_cmd>] [<op_cmd>[ ...]] [<output_c
          reg '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
 
 命令退出码：
- 1       解析配置Token失败。
- 2       解析输入Token失败。
- 3       解析操作Token失败。
- 4       解析输出Token失败。
- 5       参数解析失败。
- 6       命令缺少参数。
- 7       参数内容无法完全解析，存在剩余无法解析的内容。
- 8       未知参数。
- 9       从剪切板读取数据失败。
+  1      解析配置Token失败。
+  2      解析输入Token失败。
+  3      解析操作Token失败。
+  4      解析输出Token失败。
+  5      参数解析失败。
+  6      命令缺少有效参数。
+  7      参数内容无法完全解析，存在剩余无法解析的内容。
+  8      未知参数。
+  9      从剪切板读取数据失败。
  10      从文件读取数据失败。
  11      写入数据到剪切板失败。
  12      打开文件失败。
@@ -292,5 +305,5 @@ Usage: rp [<options> [<option_value>]] [<input_cmd>] [<op_cmd>[ ...]] [<output_c
  14      格式化字符串失败。
  15      解析正则表达式失败。
  16      解析数值失败。
- 17      无效的转义。
+ 17      无效的非负整数参数。
 ```

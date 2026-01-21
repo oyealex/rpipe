@@ -14,12 +14,12 @@ use crate::parse::token::output::parse_out;
 use nom::branch::alt;
 use nom::bytes::complete::{escaped, take_while1};
 use nom::bytes::complete::{tag_no_case, take_while};
-use nom::character::complete::{anychar, char};
+use nom::character::complete::{anychar, char, usize};
 use nom::character::complete::{none_of, space1};
 use nom::combinator::{eof, map, map_res, opt, peek, recognize, value, verify};
 use nom::error::context;
 use nom::multi::{fold_many1, many_till};
-use nom::sequence::{delimited, preceded};
+use nom::sequence::{delimited, preceded, separated_pair};
 use nom::{ExtendInto, IResult, Parser};
 use nom_language::error::VerboseError;
 use std::borrow::Cow;
@@ -250,6 +250,15 @@ where
         }
         result
     })
+}
+
+pub(in crate::parse) fn parse_usize_range(
+    input: &str,
+) -> IResult<&str, (Option<usize>, Option<usize>), ParserError<'_>> {
+    verify(separated_pair(context("<start>", opt(usize)), char(','), context("<end>", opt(usize))), |(s, e)| {
+        s.is_some() || e.is_some()
+    })
+    .parse(input)
 }
 
 #[cfg(test)]

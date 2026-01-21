@@ -139,6 +139,20 @@ fn parse_general_file_info(
     }
 }
 
+fn parse_usize(
+    cmd: &'static str, arg: &'static str, args: &mut Peekable<impl Iterator<Item = String>>,
+) -> Result<usize, RpErr> {
+    if let Some(count) = args.next() {
+        if let Ok(count) = count.parse::<usize>() {
+            Ok(count)
+        } else {
+            Err(RpErr::InvalidNonNegativeIntArg { cmd, arg, arg_value: count })
+        }
+    } else {
+        Err(RpErr::MissingArg { cmd, arg })
+    }
+}
+
 #[cfg(test)]
 fn build_args(args_line: &'static str) -> Peekable<impl Iterator<Item = String>> {
     args_line

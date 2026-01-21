@@ -1,6 +1,6 @@
 [package]
 name = "rpipe"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 description = "A command-line string processing tool implemented in Rust that supports streaming processing."
 authors = ["oyealex"]

@@ -1,10 +1,12 @@
 mod replace;
+mod slice;
 pub(crate) mod trim;
 
 use crate::condition::Condition;
 use crate::config::{is_nocase, Config};
 use crate::err::RpErr;
 use crate::op::replace::ReplaceArg;
+use crate::op::slice::SliceIter;
 use crate::op::trim::TrimArg;
 use crate::pipe::Pipe;
 use crate::{Float, Integer, PipeRes};
@@ -87,13 +89,27 @@ pub(crate) enum Op {
     ///                 <regex>     需要去除的正则，必选。
     Trim(TrimArg),
     /* **************************************** 减少 **************************************** */
+    /// :limit      保留前N个数据，丢弃后续的其他数据。
+    ///             :limit <count>
+    ///                 <count> 需要保留的数量，必须为非负整数，必选。
+    /// :skip       丢弃前N个数据，保留后续的其他数据。
+    ///             :skip <count>
+    ///                 <count> 需要保留的数量，必须为非负整数，必选。
+    /// :slice      对数据切片，保留指定索引范围内的数据，丢弃其他数据。
+    ///             支持指定多个范围，操作不会对范围进行排序或合并，严格按照给定的范围选择数据。
+    ///             如果一个范围无效，例如范围开始值大于结束值，此范围会被丢弃。
+    ///             :slice [ <range>][...]
+    ///                 <range> 切片范围，格式：<start>,<end>，如果不指定任何范围则丢弃全部数据。
+    ///                     <start> 范围起始索引，包含，与<end>至少指定一个。
+    ///                     <end>   范围起始索引，包含，与<start>至少指定一个。
+    Slice { ranges: Vec<(Option<usize>, Option<usize>)> },
     /// :uniq       去重。
     ///             :uniq[ nocase]
     ///                 nocase  去重时忽略大小写，可选，未指定时不忽略大小写。
     ///             例如：
     ///                 :uniq
     ///                 :uniq nocase
-    Uniq(bool /*nocase*/),
+    Uniq { nocase: bool },
     /// :join       合并数据。
     ///             :join<[ <delimiter>[ <prefix>[ <postfix>[ <batch>]]]]
     ///                 <delimiter> 分隔字符串，可选。
@@ -233,7 +249,9 @@ impl Op {
                 }
             }
             Op::Trim(trim_arg) => Ok(pipe.op_map(move |s| trim_arg.trim(s, configs))),
-            Op::Uniq(nocase) => {
+            // OPT 2026-01-22 01:10 针对 limit 0、skip 0 等命令进行优化
+            Op::Slice { ranges } => Ok(Pipe { iter: Box::new(SliceIter::new(pipe, ranges)) }),
+            Op::Uniq { nocase } => {
                 let mut seen = HashSet::new();
                 Ok(pipe.op_filter(move |item| {
                     let key = if is_nocase(nocase, configs) { item.to_ascii_uppercase() } else { item.clone() };
@@ -346,7 +364,7 @@ pub(crate) struct JoinInfo {
     pub(crate) postfix: String,
 }
 
-struct ChunkJoin<I> {
+struct ChunkJoin<I: Iterator<Item = String>> {
     source: I,
     group_size: usize,
     join_info: JoinInfo,
