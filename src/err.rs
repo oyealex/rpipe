@@ -57,7 +57,7 @@ pub enum RpErr {
     WriteToFileErr { file: String, item: String, err: String },
 
     /// 14      格式化字符串失败。
-    #[error("[FormatStringErr:14] Format string by {fmt:?} with {value:?} error at: {err_pos}")]
+    #[error("[FormatStringErr:14] Format string by {fmt:?} with {value} error at: {err_pos}")]
     FormatStringErr { fmt: String, value: String, err_pos: usize },
 
     /// 15      解析正则表达式失败。

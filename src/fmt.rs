@@ -109,7 +109,7 @@ use rt_format::ParsedFormat;
 pub(crate) fn fmt_args(fmt: &str, args: &[(&str, FmtArg)]) -> Result<String, RpErr> {
     match ParsedFormat::parse(fmt, &NoPositionalArguments, &args) {
         Ok(string) => Ok(format!("{}", string)),
-        Err(err_pos) => Err(RpErr::FormatStringErr { fmt: format!("{fmt:?}"), value: format!("{args:?}"), err_pos }),
+        Err(err_pos) => Err(RpErr::FormatStringErr { fmt: fmt.to_owned(), value: format!("{args:?}"), err_pos }),
     }
 }
 

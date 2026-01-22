@@ -88,13 +88,15 @@ pub fn run(mut args: Peekable<impl Iterator<Item = String>>) -> Result<(), RpErr
     let (input, ops, output) =
         if configs.contains(&Config::Token) { config::parse_eval_token(&mut args)? } else { parse::args::parse(args)? };
     if configs.contains(&Config::Verbose) {
-        config::print_pipe_info(&input, &ops, &output);
+        config::print_pipe_info(&configs, &input, &ops, &output);
     }
+    if configs.contains(&Config::DryRun) {
+        return Ok(());
+    };
     let configs: &'static mut [Config] = configs.leak();
     let mut pipe = input.try_into(configs)?;
     for op in ops {
         pipe = op.wrap(pipe, configs)?;
     }
-    // TODO 2026-01-22 02:39 rp -v -d :sort 由于已经打开了std in，导致dry run会阻塞在sort
-    if configs.contains(&Config::DryRun) { Ok(()) } else { output.handle(pipe) }
+    output.handle(pipe)
 }

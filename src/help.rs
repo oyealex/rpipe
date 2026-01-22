@@ -7,7 +7,7 @@ use crate::output::Output;
 use std::iter::Peekable;
 
 pub(crate) fn print_version() {
-    println!("rp (rust pipe) - {} - {}", env!("CARGO_PKG_VERSION"), env!("BUILD_TIME"));
+    println!("rp (rust pipe) - {} - Build at {}", env!("CARGO_PKG_VERSION"), env!("BUILD_TIME"));
 }
 
 pub(crate) fn print_help(args: &mut Peekable<impl Iterator<Item = String>>) {
