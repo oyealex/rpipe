@@ -10,13 +10,13 @@ use crate::{Float, Integer};
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{space1, usize};
-use nom::combinator::{map, map_res, opt, value, verify};
+use nom::combinator::{map, opt, value, verify};
 use nom::error::context;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated};
 use nom::Parser;
 
-// TODO 2026-01-22 02:10 改造token解析结果，支持传递RpErr
+// TODO 2026-01-22 02:10 改造token解析结果，支持传递RpErr，补充相关UT
 pub(in crate::parse) fn parse_ops(input: &str) -> OpsIResult<'_> {
     context(
         "Op",
@@ -125,7 +125,7 @@ fn parse_trim(input: &str) -> OpIResult<'_> {
                         None => Op::Trim(TrimArg::new_blank(pos)),
                     },
                 ),
-                map_res(
+                map_res_failure(
                     (
                         alt((
                             value(TrimPos::Both, (tag_no_case(":trimr"), arg_end)),
