@@ -1,7 +1,7 @@
 use crate::err::RpErr;
 use crate::input::Input;
-use crate::parse::args::{parse_arg, parse_arg1, parse_opt_arg, parse_positive_usize};
 use crate::parse::InputResult;
+use crate::parse::args::{parse_arg, parse_arg1, parse_opt_arg, parse_positive_usize};
 use std::iter::Peekable;
 
 pub(in crate::parse::args) fn parse_input(args: &mut Peekable<impl Iterator<Item = String>>) -> InputResult {
@@ -71,8 +71,8 @@ fn parse_repeat(args: &mut Peekable<impl Iterator<Item = String>>) -> InputResul
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::args::build_args;
     use crate::Integer;
+    use crate::parse::args::build_args;
 
     #[test]
     fn test_parse_std_in() {

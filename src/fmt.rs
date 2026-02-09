@@ -103,8 +103,8 @@ impl NamedArguments<FmtArg> for &[(&str, FmtArg)] {
 }
 
 use crate::err::RpErr;
-use rt_format::argument::NamedArguments;
 use rt_format::ParsedFormat;
+use rt_format::argument::NamedArguments;
 
 pub(crate) fn fmt_args(fmt: &str, args: &[(&str, FmtArg)]) -> Result<String, RpErr> {
     match ParsedFormat::parse(fmt, &NoPositionalArguments, &args) {

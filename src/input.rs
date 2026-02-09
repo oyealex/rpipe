@@ -1,6 +1,6 @@
-use crate::config::{skip_err, Config};
+use crate::config::{Config, skip_err};
 use crate::err::RpErr;
-use crate::fmt::{fmt_args, FmtArg};
+use crate::fmt::{FmtArg, fmt_args};
 use crate::pipe::Pipe;
 use crate::{Integer, PipeRes};
 use cmd_help::CmdHelp;

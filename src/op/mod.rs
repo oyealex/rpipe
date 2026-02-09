@@ -3,8 +3,9 @@ mod slice;
 pub(crate) mod trim;
 
 use crate::condition::Condition;
-use crate::config::{is_nocase, Config};
+use crate::config::{Config, is_nocase};
 use crate::err::RpErr;
+use crate::fmt::{FmtArg, fmt_args};
 use crate::op::replace::ReplaceArg;
 use crate::op::slice::SliceIter;
 use crate::op::trim::TrimArg;
@@ -110,9 +111,17 @@ pub(crate) enum Op {
     ///                 :uniq
     ///                 :uniq nocase
     Uniq { nocase: bool },
-    /// :sum        累加数据流中的数值。
+    /// :sum        累加数据流中的数值，支持可选的格式化参数。
     ///             对输入流中的每个文本项，尝试转换为整数或浮点数，成功则累加，失败按 0 处理。
-    Sum,
+    ///             :sum[ <fmt>]
+    ///                 <fmt>   格式化字符串，以{v}表示累加结果的数值。
+    ///                         更多格式化信息参考`-h fmt`。
+    ///             例如：
+    ///                 :sum
+    ///                 :sum "Result: {v}"
+    ///                 :sum "Total: {v}"
+    ///                 :sum "Sum = {v:#04x}"
+    Sum { fmt: Option<String> },
     /// :join       合并数据。
     ///             :join<[ <delimiter>[ <prefix>[ <postfix>[ <batch>]]]]
     ///                 <delimiter> 分隔字符串，可选。
@@ -261,7 +270,7 @@ impl Op {
                     seen.insert(key) // 返回 true 表示保留（首次出现）
                 }))
             }
-            Op::Sum => {
+            Op::Sum { fmt } => {
                 // Consume all input and accumulate numeric values, non-numeric treated as 0
                 let items = pipe.collect::<Vec<String>>();
                 let mut acc: Float = 0.0;
@@ -272,8 +281,16 @@ impl Op {
                         acc += f;
                     }
                 }
-                // 简单输出，直接使用默认格式，整数会显示为整型，非整数显示浮点数
-                let out = acc.to_string();
+                // 根据是否有格式化参数决定输出格式
+                let out = if let Some(fmt_str) = fmt {
+                    match fmt_args(&fmt_str, &[("v", FmtArg::from(acc))]) {
+                        Ok(string) => string,
+                        Err(err) => err.termination(),
+                    }
+                } else {
+                    // 简单输出，直接使用默认格式，整数会显示为整型，非整数显示浮点数
+                    acc.to_string()
+                };
                 Ok(Pipe { iter: Box::new(std::iter::once(out)) })
             }
             Op::Join { join_info, batch: count } => {
@@ -413,5 +430,59 @@ where
                 self.join_info.postfix
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pipe::Pipe;
+
+    #[test]
+    fn test_sum_without_fmt() {
+        let input = Pipe { iter: Box::new(vec!["1", "2", "3"].into_iter().map(|s| s.to_string())) };
+        let result = Op::Sum { fmt: None }.wrap(input, &[]).unwrap();
+        let output: Vec<String> = result.collect();
+        assert_eq!(output, vec!["6"]);
+    }
+
+    #[test]
+    fn test_sum_with_fmt() {
+        let input = Pipe { iter: Box::new(vec!["1", "2", "3"].into_iter().map(|s| s.to_string())) };
+        let result = Op::Sum { fmt: Some("Result: {v}".to_string()) }.wrap(input, &[]).unwrap();
+        let output: Vec<String> = result.collect();
+        assert_eq!(output, vec!["Result: 6"]);
+    }
+
+    #[test]
+    fn test_sum_with_custom_fmt() {
+        let input = Pipe { iter: Box::new(vec!["10", "20", "30"].into_iter().map(|s| s.to_string())) };
+        let result = Op::Sum { fmt: Some("Total: {v}".to_string()) }.wrap(input, &[]).unwrap();
+        let output: Vec<String> = result.collect();
+        assert_eq!(output, vec!["Total: 60"]);
+    }
+
+    #[test]
+    fn test_sum_with_hex_fmt() {
+        let input = Pipe { iter: Box::new(vec!["10", "20", "30"].into_iter().map(|s| s.to_string())) };
+        let result = Op::Sum { fmt: Some("Sum = {v}".to_string()) }.wrap(input, &[]).unwrap();
+        let output: Vec<String> = result.collect();
+        assert_eq!(output, vec!["Sum = 60"]);
+    }
+
+    #[test]
+    fn test_sum_with_float_input() {
+        let input = Pipe { iter: Box::new(vec!["1.5", "2.5", "3.0"].into_iter().map(|s| s.to_string())) };
+        let result = Op::Sum { fmt: Some("{v}".to_string()) }.wrap(input, &[]).unwrap();
+        let output: Vec<String> = result.collect();
+        assert_eq!(output, vec!["7"]);
+    }
+
+    #[test]
+    fn test_sum_with_mixed_input() {
+        let input = Pipe { iter: Box::new(vec!["1", "2.5", "abc", "3"].into_iter().map(|s| s.to_string())) };
+        let result = Op::Sum { fmt: None }.wrap(input, &[]).unwrap();
+        let output: Vec<String> = result.collect();
+        assert_eq!(output, vec!["6.5"]);
     }
 }

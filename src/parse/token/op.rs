@@ -7,6 +7,7 @@ use crate::parse::token::{
 };
 use crate::parse::{OpIResult, OpsIResult};
 use crate::{Float, Integer};
+use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{space1, usize};
@@ -14,7 +15,6 @@ use nom::combinator::{map, opt, value, verify};
 use nom::error::context;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated};
-use nom::Parser;
 
 // TODO 2026-01-22 02:10 改造token解析结果，支持传递RpErr，补充相关UT
 pub(in crate::parse) fn parse_ops(input: &str) -> OpsIResult<'_> {
@@ -202,7 +202,20 @@ fn parse_uniq(input: &str) -> OpIResult<'_> {
 }
 
 fn parse_sum(input: &str) -> OpIResult<'_> {
-    context("Op::Sum", map(preceded(tag_no_case(":sum"), space1), |_| Op::Sum)).parse(input)
+    context(
+        "Op::Sum",
+        map(
+            terminated(
+                preceded(
+                    tag_no_case(":sum"),                                      // 命令
+                    opt(context("<fmt>", preceded(space1, arg_exclude_cmd))), // 可选格式化字符串
+                ),
+                context("(trailing_space1)", space1),
+            ),
+            |fmt| Op::Sum { fmt },
+        ),
+    )
+    .parse(input)
 }
 
 fn parse_join(input: &str) -> OpIResult<'_> {
@@ -354,10 +367,16 @@ mod tests {
 
     #[test]
     fn test_parse_sum() {
-        // direct parser for a single Sum operation
-        assert_eq!(parse_sum(":sum "), Ok(("", Op::Sum)));
-        // via parse_ops with a single Sum
-        assert_eq!(parse_ops(":sum ").unwrap().1, vec![Op::Sum]);
+        // direct parser for a single Sum operation without fmt
+        assert_eq!(parse_sum(":sum "), Ok(("", Op::Sum { fmt: None })));
+        // direct parser for a single Sum operation with fmt
+        assert_eq!(parse_sum(":sum \"Result: {v}\" "), Ok(("", Op::Sum { fmt: Some("Result: {v}".to_string()) })));
+        assert_eq!(parse_sum(":sum \"Total: {v}\" "), Ok(("", Op::Sum { fmt: Some("Total: {v}".to_string()) })));
+        // via parse_ops with a single Sum with fmt
+        assert_eq!(
+            parse_ops(":sum \"Result: {v}\" ").unwrap().1,
+            vec![Op::Sum { fmt: Some("Result: {v}".to_string()) }]
+        );
     }
 
     #[test]

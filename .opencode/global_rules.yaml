@@ -1,0 +1,7 @@
+# Global rules for assistant behavior
+rules:
+  - id: language_policy_zh
+    type: reply_language
+    language: zh-CN
+    scope: global
+    description: "后续始终使用中文回复"

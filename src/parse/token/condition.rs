@@ -1,6 +1,6 @@
 use crate::condition::{Condition, Select, TextSelectMode};
-use crate::parse::token::{arg, arg_end, map_res_failure, parse_num};
 use crate::parse::RpParseErr;
+use crate::parse::token::{arg, arg_end, map_res_failure, parse_num};
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{char, space1, usize};

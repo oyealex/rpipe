@@ -1,4 +1,4 @@
-use crate::config::{is_nocase, Config};
+use crate::config::{Config, is_nocase};
 use crate::err::RpErr;
 use regex::Regex;
 use std::collections::HashSet;

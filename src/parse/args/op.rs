@@ -64,9 +64,9 @@ fn parse_peek(args: &mut Peekable<impl Iterator<Item = String>>) -> OpResult {
 }
 
 fn parse_sum(args: &mut Peekable<impl Iterator<Item = String>>) -> OpResult {
-    // :sum
+    // :sum[ <fmt>]
     args.next();
-    Ok(Op::Sum)
+    Ok(Op::Sum { fmt: parse_opt_arg(args) })
 }
 
 fn parse_case(case_arg: CaseArg, args: &mut Peekable<impl Iterator<Item = String>>) -> OpResult {
@@ -589,8 +589,16 @@ mod tests {
 
     #[test]
     fn test_parse_sum() {
+        // without fmt
         let mut args = build_args(":sum ");
-        assert_eq!(Ok(Some(Op::Sum)), parse_op(&mut args));
+        assert_eq!(Ok(Some(Op::Sum { fmt: None })), parse_op(&mut args));
+        assert!(args.next().is_none());
+        // with fmt containing space (in args mode, the format string is passed as a single argument)
+        let mut args = vec![":sum".to_string(), "Result: {v}".to_string()].into_iter().peekable();
+        assert_eq!(Ok(Some(Op::Sum { fmt: Some("Result: {v}".to_string()) })), parse_op(&mut args));
+        assert!(args.next().is_none());
+        let mut args = vec![":sum".to_string(), "Total: {v}".to_string()].into_iter().peekable();
+        assert_eq!(Ok(Some(Op::Sum { fmt: Some("Total: {v}".to_string()) })), parse_op(&mut args));
         assert!(args.next().is_none());
     }
 }

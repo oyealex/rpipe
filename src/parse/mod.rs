@@ -4,8 +4,8 @@ use crate::err::RpErr;
 use crate::input::Input;
 use crate::op::Op;
 use crate::output::Output;
-use nom::error::{ContextError, ErrorKind, FromExternalError, ParseError};
 use nom::IResult;
+use nom::error::{ContextError, ErrorKind, FromExternalError, ParseError};
 use nom_language::error::{VerboseError, VerboseErrorKind};
 
 pub(crate) mod args;

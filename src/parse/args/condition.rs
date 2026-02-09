@@ -1,10 +1,10 @@
 use crate::condition::{Condition, Select, TextSelectMode};
 use crate::err::RpErr;
+use crate::parse::CondResult;
 use crate::parse::args::parse_tag_nocase;
 use crate::parse::token::parse_num;
-use crate::parse::CondResult;
-use nom::character::complete::usize;
 use nom::Parser;
+use nom::character::complete::usize;
 use std::iter::Peekable;
 
 pub(in crate::parse::args) fn parse_cond(
@@ -110,8 +110,8 @@ pub(in crate::parse::args) fn parse_cond(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::args::build_args;
     use crate::Num;
+    use crate::parse::args::build_args;
 
     #[test]
     fn test_parse_cond_text_len_range() {

@@ -4,6 +4,7 @@ pub(in crate::parse) mod input;
 pub(in crate::parse) mod op;
 pub(in crate::parse) mod output;
 
+use crate::Num;
 use crate::config::Config;
 use crate::err::RpErr;
 use crate::input::Input;
@@ -13,7 +14,6 @@ use crate::parse::token::config::parse_configs;
 use crate::parse::token::input::parse_input;
 use crate::parse::token::op::parse_ops;
 use crate::parse::token::output::parse_out;
-use crate::Num;
 use nom::branch::alt;
 use nom::bytes::complete::{escaped, take_while1};
 use nom::bytes::complete::{tag_no_case, take_while};

@@ -1,6 +1,6 @@
 use crate::err::RpErr;
 use crate::output::Output;
-use crate::parse::{args, OutputResult};
+use crate::parse::{OutputResult, args};
 use args::parse_general_file_info;
 use std::iter::Peekable;
 

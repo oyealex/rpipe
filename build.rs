@@ -12,20 +12,18 @@ fn main() {
 fn get_build_time() -> String {
     // 优先尝试本地时间
     if let Ok(local) = time::OffsetDateTime::now_local() {
-        if let Ok(formatted) = local.format(
-            &time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")
-                .unwrap(),
-        ) {
+        if let Ok(formatted) =
+            local.format(&time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]").unwrap())
+        {
             return formatted;
         }
     }
 
     // 回退到 UTC 时间
     let utc = time::OffsetDateTime::now_utc();
-    if let Ok(formatted) = utc.format(
-        &time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")
-            .unwrap(),
-    ) {
+    if let Ok(formatted) =
+        utc.format(&time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]").unwrap())
+    {
         return format!("{} (UTC)", formatted);
     }
 
