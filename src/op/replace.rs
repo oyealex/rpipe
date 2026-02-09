@@ -29,8 +29,8 @@ impl ReplaceArg {
         let max_replacements = self.count.unwrap_or(usize::MAX);
 
         let lower_text_holder; // 保持下方的&str引用有效
-        // 根据是否忽略大小写选择匹配函数
         let actual_text = if is_nocase(self.nocase, configs) {
+            // 根据是否忽略大小写选择匹配函数
             lower_text_holder = text.to_ascii_lowercase();
             &lower_text_holder as &str
         } else {

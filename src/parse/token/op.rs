@@ -27,6 +27,7 @@ pub(in crate::parse) fn parse_ops(input: &str) -> OpsIResult<'_> {
             parse_trim,
             parse_slice,
             parse_uniq,
+            parse_sum,
             parse_join,
             parse_take_drop,
             parse_count,
@@ -200,6 +201,10 @@ fn parse_uniq(input: &str) -> OpIResult<'_> {
     .parse(input)
 }
 
+fn parse_sum(input: &str) -> OpIResult<'_> {
+    context("Op::Sum", map(preceded(tag_no_case(":sum"), space1), |_| Op::Sum)).parse(input)
+}
+
 fn parse_join(input: &str) -> OpIResult<'_> {
     context(
         "Op::Join",
@@ -345,6 +350,14 @@ mod tests {
         assert_eq!(parse_case(":lower "), Ok(("", Op::Case(CaseArg::Lower))));
         assert_eq!(parse_case(":upper "), Ok(("", Op::Case(CaseArg::Upper))));
         assert_eq!(parse_case(":case "), Ok(("", Op::Case(CaseArg::Switch))));
+    }
+
+    #[test]
+    fn test_parse_sum() {
+        // direct parser for a single Sum operation
+        assert_eq!(parse_sum(":sum "), Ok(("", Op::Sum)));
+        // via parse_ops with a single Sum
+        assert_eq!(parse_ops(":sum ").unwrap().1, vec![Op::Sum]);
     }
 
     #[test]

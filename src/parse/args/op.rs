@@ -41,6 +41,7 @@ fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> OpOptResult {
                 ":skip" => Some(parse_skip(args)?),
                 ":slice" => Some(parse_slice(args)?),
                 ":uniq" => Some(parse_uniq(args)?),
+                ":sum" => Some(parse_sum(args)?),
                 ":join" => Some(parse_join(args)?),
                 ":drop" => Some(parse_drop_or_drop_while(args)?),
                 ":take" => Some(parse_take_or_take_while(args)?),
@@ -60,6 +61,12 @@ fn parse_peek(args: &mut Peekable<impl Iterator<Item = String>>) -> OpResult {
     } else {
         Ok(Op::Peek(PeekArg::StdOut))
     }
+}
+
+fn parse_sum(args: &mut Peekable<impl Iterator<Item = String>>) -> OpResult {
+    // :sum
+    args.next();
+    Ok(Op::Sum)
 }
 
 fn parse_case(case_arg: CaseArg, args: &mut Peekable<impl Iterator<Item = String>>) -> OpResult {
@@ -578,5 +585,12 @@ mod tests {
         let mut args = build_args(":sort random abc");
         assert_eq!(Ok(Some(Op::new_sort(SortBy::Random, false))), parse_op(&mut args));
         assert_eq!(Some("abc".to_string()), args.next());
+    }
+
+    #[test]
+    fn test_parse_sum() {
+        let mut args = build_args(":sum ");
+        assert_eq!(Ok(Some(Op::Sum)), parse_op(&mut args));
+        assert!(args.next().is_none());
     }
 }

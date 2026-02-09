@@ -110,6 +110,9 @@ pub(crate) enum Op {
     ///                 :uniq
     ///                 :uniq nocase
     Uniq { nocase: bool },
+    /// :sum        累加数据流中的数值。
+    ///             对输入流中的每个文本项，尝试转换为整数或浮点数，成功则累加，失败按 0 处理。
+    Sum,
     /// :join       合并数据。
     ///             :join<[ <delimiter>[ <prefix>[ <postfix>[ <batch>]]]]
     ///                 <delimiter> 分隔字符串，可选。
@@ -257,6 +260,21 @@ impl Op {
                     let key = if is_nocase(nocase, configs) { item.to_ascii_uppercase() } else { item.clone() };
                     seen.insert(key) // 返回 true 表示保留（首次出现）
                 }))
+            }
+            Op::Sum => {
+                // Consume all input and accumulate numeric values, non-numeric treated as 0
+                let items = pipe.collect::<Vec<String>>();
+                let mut acc: Float = 0.0;
+                for s in items {
+                    if let Ok(i) = s.parse::<Integer>() {
+                        acc += i as Float;
+                    } else if let Ok(f) = s.parse::<Float>() {
+                        acc += f;
+                    }
+                }
+                // 简单输出，直接使用默认格式，整数会显示为整型，非整数显示浮点数
+                let out = acc.to_string();
+                Ok(Pipe { iter: Box::new(std::iter::once(out)) })
             }
             Op::Join { join_info, batch: count } => {
                 if let Some(count) = count {
