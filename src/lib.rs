@@ -74,6 +74,31 @@ impl PartialEq for Num {
     }
 }
 
+impl std::ops::Add for Num {
+    type Output = Num;
+
+    fn add(self, other: Num) -> Self::Output {
+        match (self, other) {
+            (Num::Integer(a), Num::Integer(b)) => {
+                if let Some(sum) = a.checked_add(b) {
+                    Num::Integer(sum)
+                } else {
+                    Num::Float(a as Float + b as Float)
+                }
+            }
+            (Num::Integer(a), Num::Float(b)) => Num::Float(a as Float + b),
+            (Num::Float(a), Num::Integer(b)) => Num::Float(a + b as Float),
+            (Num::Float(a), Num::Float(b)) => Num::Float(a + b),
+        }
+    }
+}
+
+impl std::iter::Sum for Num {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Num::Integer(0), |acc, item| acc + item)
+    }
+}
+
 pub(crate) type PipeRes = Result<Pipe, RpErr>;
 
 pub fn run(mut args: Peekable<impl Iterator<Item = String>>) -> Result<(), RpErr> {

@@ -122,6 +122,13 @@ impl PartialEq for Select {
     }
 }
 
+/// 优化的字符计数函数
+/// 对于 ASCII 文本，使用字节长度（O(1)）
+/// 对于 UTF-8 文本，遍历字符（O(n)）
+fn optimized_char_count(input: &str) -> usize {
+    if input.is_ascii() { input.len() } else { input.chars().count() }
+}
+
 impl Select {
     pub(crate) fn new_text_len_range(min: Option<usize>, max: Option<usize>) -> Select {
         Select::TextLenRange { min, max }
@@ -149,10 +156,10 @@ impl Select {
     fn select(&self, input: &str) -> bool {
         match self {
             Select::TextLenRange { min, max } => {
-                let len = *&input.chars().count();
+                let len = optimized_char_count(input);
                 min.map_or(true, |min_len| len >= min_len) && max.map_or(true, |max_len| len <= max_len)
             }
-            Select::TextLenSpec { spec } => input.chars().count() == *spec,
+            Select::TextLenSpec { spec } => optimized_char_count(input) == *spec,
             Select::NumRange { min, max } => input
                 .parse::<Num>()
                 .map(|i| min.map_or(true, |min_len| i >= min_len) && max.map_or(true, |max_len| i <= max_len))

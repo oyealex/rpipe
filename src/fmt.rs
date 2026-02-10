@@ -1,4 +1,4 @@
-use crate::{Float, Integer};
+use crate::{Float, Integer, Num};
 use rt_format::{Format, FormatArgument, NoPositionalArguments, Specifier};
 use std::fmt::Formatter;
 
@@ -7,6 +7,15 @@ pub(crate) enum FmtArg {
     String(String),
     Integer(Integer),
     Float(Float),
+}
+
+impl From<Num> for FmtArg {
+    fn from(num: Num) -> Self {
+        match num {
+            Num::Integer(i) => FmtArg::Integer(i),
+            Num::Float(f) => FmtArg::Float(f),
+        }
+    }
 }
 
 impl From<&str> for FmtArg {

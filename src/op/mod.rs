@@ -10,14 +10,14 @@ use crate::op::replace::ReplaceArg;
 use crate::op::slice::SliceIter;
 use crate::op::trim::TrimArg;
 use crate::pipe::Pipe;
-use crate::{Float, Integer, PipeRes};
+use crate::{Float, Integer, Num, PipeRes};
 use cmd_help::CmdHelp;
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 use rand::seq::SliceRandom;
+use rustc_hash::FxHashSet;
 use std::borrow::Cow;
 use std::cmp::Reverse;
-use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::Write;
 use unicase::UniCase;
@@ -264,23 +264,17 @@ impl Op {
             // OPT 2026-01-22 01:10 针对 limit 0、skip 0 等命令进行优化
             Op::Slice { ranges } => Ok(Pipe { iter: Box::new(SliceIter::new(pipe, ranges)) }),
             Op::Uniq { nocase } => {
-                let mut seen = HashSet::new();
+                let mut seen = FxHashSet::default();
                 Ok(pipe.op_filter(move |item| {
                     let key = if is_nocase(nocase, configs) { item.to_ascii_uppercase() } else { item.clone() };
-                    seen.insert(key) // 返回 true 表示保留（首次出现）
+                    seen.insert(key)
                 }))
             }
             Op::Sum { fmt } => {
-                // Consume all input and accumulate numeric values, non-numeric treated as 0
-                let items = pipe.collect::<Vec<String>>();
-                let mut acc: Float = 0.0;
-                for s in items {
-                    if let Ok(i) = s.parse::<Integer>() {
-                        acc += i as Float;
-                    } else if let Ok(f) = s.parse::<Float>() {
-                        acc += f;
-                    }
-                }
+                // 使用 Num::sum 进行流式累加，更符合 Rust 惯用法
+                let acc = pipe
+                    .filter_map(|s| s.parse::<Num>().ok()) // 解析失败的项目被过滤掉（视为0）
+                    .sum::<Num>();
                 // 根据是否有格式化参数决定输出格式
                 let out = if let Some(fmt_str) = fmt {
                     match fmt_args(&fmt_str, &[("v", FmtArg::from(acc))]) {
@@ -288,8 +282,14 @@ impl Op {
                         Err(err) => err.termination(),
                     }
                 } else {
-                    // 简单输出，直接使用默认格式，整数会显示为整型，非整数显示浮点数
-                    acc.to_string()
+                    // 根据类型决定输出格式
+                    match acc {
+                        Num::Integer(i) => i.to_string(),
+                        Num::Float(f) => {
+                            // 如果小数部分为 0，显示为整数
+                            if f.fract() == 0.0 { (f as Integer).to_string() } else { f.to_string() }
+                        }
+                    }
                 };
                 Ok(Pipe { iter: Box::new(std::iter::once(out)) })
             }

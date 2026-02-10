@@ -129,9 +129,7 @@ impl Input {
             }),
             #[cfg(windows)]
             Input::Clip => match clipboard_win::get_clipboard_string() {
-                Ok(text) => {
-                    Ok(Pipe { iter: Box::new(text.lines().map(|s| s.to_string()).collect::<Vec<_>>().into_iter()) })
-                }
+                Ok(text) => Ok(Pipe { iter: Box::new(OwnedSplitLines::new(text)) }),
                 Err(err) => Err(RpErr::ReadClipboardTextErr(err.to_string())),
             },
             Input::Of { values } => Ok(Pipe { iter: Box::new(values.into_iter()) }),
@@ -198,9 +196,78 @@ impl DoubleEndedIterator for RangeIter {
     }
 }
 
+#[derive(Debug)]
+struct OwnedSplitLines {
+    text: String,
+    pos: usize,
+}
+
+impl OwnedSplitLines {
+    fn new(text: String) -> Self {
+        Self { text, pos: 0 }
+    }
+}
+
+impl Iterator for OwnedSplitLines {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos > self.text.len() {
+            return None;
+        }
+        let rest = &self.text[self.pos..];
+        let newline_pos = rest.find('\n');
+        match newline_pos {
+            Some(idx) => {
+                let line = rest[..idx].to_string();
+                self.pos += idx + 1;
+                Some(line)
+            }
+            None if self.pos < self.text.len() => {
+                let line = rest.to_string();
+                self.pos = self.text.len() + 1;
+                Some(line)
+            }
+            None if self.pos == self.text.len() => {
+                self.pos += 1;
+                Some(String::new())
+            }
+            None => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod iter_tests {
     use super::*;
+
+    #[test]
+    fn test_owned_split_lines_basic() {
+        let text = String::from("line1\nline2\nline3");
+        let iter = OwnedSplitLines::new(text);
+        assert_eq!(iter.collect::<Vec<_>>(), vec!["line1", "line2", "line3"]);
+    }
+
+    #[test]
+    fn test_owned_split_lines_empty() {
+        let text = String::new();
+        let iter = OwnedSplitLines::new(text);
+        assert_eq!(iter.collect::<Vec<_>>(), vec![String::new()]);
+    }
+
+    #[test]
+    fn test_owned_split_lines_trailing_newline() {
+        let text = String::from("line1\nline2\n");
+        let iter = OwnedSplitLines::new(text);
+        assert_eq!(iter.collect::<Vec<_>>(), vec!["line1", "line2", ""]);
+    }
+
+    #[test]
+    fn test_owned_split_lines_single_line() {
+        let text = String::from("single");
+        let iter = OwnedSplitLines::new(text);
+        assert_eq!(iter.collect::<Vec<_>>(), vec!["single"]);
+    }
 
     #[test]
     fn test_range_to_iter_positive() {
