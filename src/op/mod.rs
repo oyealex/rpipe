@@ -345,12 +345,10 @@ impl Op {
                         } else {
                             pipe.sorted_by_key(|item| UniCase::new(item.to_string()))
                         }
+                    } else if desc {
+                        pipe.sorted_by_key(|item| Reverse(item.to_string()))
                     } else {
-                        if desc {
-                            pipe.sorted_by_key(|item| Reverse(item.to_string()))
-                        } else {
-                            pipe.sorted_by_key(|item| item.to_string())
-                        }
+                        pipe.sorted_by_key(|item| item.to_string())
                     };
                     Ok(Pipe { iter: Box::new(iter) })
                 }
@@ -415,7 +413,7 @@ where
         let mut chunk = Vec::with_capacity(self.group_size);
         for _ in 0..self.group_size {
             if let Some(item) = self.source.next() {
-                chunk.push(String::from(item));
+                chunk.push(item);
             } else {
                 break;
             }

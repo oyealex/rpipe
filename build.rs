@@ -11,12 +11,11 @@ fn main() {
 
 fn get_build_time() -> String {
     // 优先尝试本地时间
-    if let Ok(local) = time::OffsetDateTime::now_local() {
-        if let Ok(formatted) =
+    if let Ok(local) = time::OffsetDateTime::now_local()
+        && let Ok(formatted) =
             local.format(&time::format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]").unwrap())
-        {
-            return formatted;
-        }
+    {
+        return formatted;
     }
 
     // 回退到 UTC 时间

@@ -7,7 +7,6 @@ use crate::parse::token::{
 };
 use crate::parse::{OpIResult, OpsIResult};
 use crate::{Float, Integer};
-use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{space1, usize};
@@ -15,6 +14,7 @@ use nom::combinator::{map, opt, value, verify};
 use nom::error::context;
 use nom::multi::{many0, many1};
 use nom::sequence::{delimited, preceded, terminated};
+use nom::Parser;
 
 // TODO 2026-01-22 02:10 改造token解析结果，支持传递RpErr，补充相关UT
 pub(in crate::parse) fn parse_ops(input: &str) -> OpsIResult<'_> {

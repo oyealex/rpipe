@@ -1,7 +1,7 @@
 use crate::err::RpErr;
 use crate::input::Input;
-use crate::parse::InputResult;
 use crate::parse::args::{parse_arg, parse_arg1, parse_opt_arg, parse_positive_usize};
+use crate::parse::InputResult;
 use std::iter::Peekable;
 
 pub(in crate::parse::args) fn parse_input(args: &mut Peekable<impl Iterator<Item = String>>) -> InputResult {
@@ -46,7 +46,8 @@ fn parse_of(args: &mut Peekable<impl Iterator<Item = String>>) -> InputResult {
 
 fn parse_gen(args: &mut Peekable<impl Iterator<Item = String>>) -> InputResult {
     args.next(); // 消耗命令文本
-    let range = args.next().ok_or_else(|| RpErr::MissingArg { cmd: ":gen", arg: "range" })?;
+                 // ok_or 比 ok_or_else 内存占用更小：MissingArg 字段都是 &'static str（仅引用），无需堆分配
+    let range = args.next().ok_or(RpErr::MissingArg { cmd: ":gen", arg: "range" })?;
     match crate::parse::token::input::parse_range_in_gen(&range) {
         Ok((remaining, (start, end, step))) => {
             if !remaining.is_empty() {
@@ -63,6 +64,7 @@ fn parse_gen(args: &mut Peekable<impl Iterator<Item = String>>) -> InputResult {
 
 fn parse_repeat(args: &mut Peekable<impl Iterator<Item = String>>) -> InputResult {
     args.next(); // 消耗命令文本
+                 // ok_or 比 ok_or_else 内存占用更小：MissingArg 字段都是 &'static str（仅引用），无需堆分配
     let value = parse_arg(args).ok_or(RpErr::MissingArg { cmd: ":repeat", arg: "value" })?;
     let count = parse_positive_usize(args);
     Ok(Input::new_repeat(value, count))
@@ -71,8 +73,8 @@ fn parse_repeat(args: &mut Peekable<impl Iterator<Item = String>>) -> InputResul
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Integer;
     use crate::parse::args::build_args;
+    use crate::Integer;
 
     #[test]
     fn test_parse_std_in() {
@@ -175,16 +177,11 @@ mod tests {
         assert!(args.next().is_none());
 
         let mut args = build_args(":gen abc");
-        assert!(if let Err(err) = parse_input(&mut args) {
-            match err {
-                RpErr::ArgParseErr { cmd, arg, arg_value, .. } => {
-                    ":gen".eq(cmd) && "range".eq(arg) && "abc".eq(&arg_value)
-                }
-                _ => false,
-            }
-        } else {
-            false
-        });
+        assert!(matches!(
+            parse_input(&mut args),
+            Err(RpErr::ArgParseErr { cmd, arg, arg_value, .. })
+                if ":gen".eq(cmd) && "range".eq(arg) && "abc".eq(&arg_value)
+        ));
         assert!(args.next().is_none());
     }
 

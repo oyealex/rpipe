@@ -74,7 +74,7 @@ fn parse_tag_nocase(args: &mut Peekable<impl Iterator<Item = String>>, tag: &'st
 fn parse_positive_usize(args: &mut Peekable<impl Iterator<Item = String>>) -> Option<usize> {
     if let Some(value) = args.peek() {
         let option = value.parse::<usize>().ok();
-        if option.map_or(false, |u| u > 0) {
+        if option.is_some_and(|u| u > 0) {
             args.next();
             option
         } else {
@@ -157,7 +157,6 @@ fn parse_usize(
 fn build_args(args_line: &'static str) -> Peekable<impl Iterator<Item = String>> {
     args_line
         .split_whitespace()
-        .into_iter()
         .map(|s| {
             crate::parse::token::arg(s)
                 .ok()

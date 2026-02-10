@@ -51,15 +51,11 @@ impl From<Float> for FmtArg {
 impl FormatArgument for FmtArg {
     fn supports_format(&self, specifier: &Specifier) -> bool {
         match self {
-            Self::String(_) => match specifier.format {
-                Format::Display | Format::Debug => true,
-                _ => false,
-            },
+            Self::String(_) => matches!(specifier.format, Format::Display | Format::Debug),
             Self::Integer(_) => true,
-            Self::Float(_) => match specifier.format {
-                Format::Display | Format::Debug | Format::LowerExp | Format::UpperExp => true,
-                _ => false,
-            },
+            Self::Float(_) => {
+                matches!(specifier.format, Format::Display | Format::Debug | Format::LowerExp | Format::UpperExp)
+            }
         }
     }
 
@@ -130,15 +126,12 @@ mod tests {
     fn test_fmt_args() {
         assert_eq!(
             Ok(format!("{:<7} is {:>7} year's old", "Jack", 12)),
-            fmt_args(
-                "{name:<7} is {age:>7} year's old",
-                &vec![("name", FmtArg::from("Jack")), ("age", FmtArg::from(12))]
-            )
+            fmt_args("{name:<7} is {age:>7} year's old", &[("name", FmtArg::from("Jack")), ("age", FmtArg::from(12))])
         );
-        assert_eq!(Ok("".to_string()), fmt_args("", &vec![("name", FmtArg::from("Jack")), ("age", FmtArg::from(12))]));
+        assert_eq!(Ok("".to_string()), fmt_args("", &[("name", FmtArg::from("Jack")), ("age", FmtArg::from(12))]));
         assert_eq!(
             Ok("{Jack}".to_string()),
-            fmt_args("{{{name}}}", &vec![("name", FmtArg::from("Jack")), ("age", FmtArg::from(12))])
+            fmt_args("{{{name}}}", &[("name", FmtArg::from("Jack")), ("age", FmtArg::from(12))])
         );
     }
 }

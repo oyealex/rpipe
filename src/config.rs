@@ -50,7 +50,7 @@ pub(crate) fn skip_err(configs: &[Config]) -> bool {
     configs.contains(&Config::SkipErr)
 }
 
-pub(crate) fn print_pipe_info(configs: &[Config], input: &Input, ops: &Vec<Op>, output: &Output) {
+pub(crate) fn print_pipe_info(configs: &[Config], input: &Input, ops: &[Op], output: &Output) {
     // TODO 2026-01-20 22:58 使用Display以可读形式描述流水线。
     println_info!("Configs:");
     println_notice!("  {:?}", configs);
@@ -73,7 +73,7 @@ pub(crate) fn parse_eval_token(
 ) -> Result<(Input, Vec<Op>, Output), RpErr> {
     if let Some(mut token) = args.next() {
         token.push(' ');
-        match parse::token::parse_without_configs(&token.trim_start()) {
+        match parse::token::parse_without_configs(token.trim_start()) {
             Ok((remaining, res)) => {
                 if !remaining.is_empty() {
                     Err(RpErr::UnexpectedRemaining { cmd: "--token", arg: "<token>", remaining: remaining.to_owned() })?

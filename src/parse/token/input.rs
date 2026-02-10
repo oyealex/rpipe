@@ -1,8 +1,8 @@
-use crate::Integer;
 use crate::input::Input;
-use crate::parse::RpParseErr;
 use crate::parse::token::parse_integer;
 use crate::parse::token::{arg_exclude_cmd, cmd_arg1};
+use crate::parse::RpParseErr;
+use crate::Integer;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::space1;

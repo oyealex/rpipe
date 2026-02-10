@@ -157,12 +157,12 @@ impl Select {
         match self {
             Select::TextLenRange { min, max } => {
                 let len = optimized_char_count(input);
-                min.map_or(true, |min_len| len >= min_len) && max.map_or(true, |max_len| len <= max_len)
+                min.is_none_or(|min_len| len >= min_len) && max.is_none_or(|max_len| len <= max_len)
             }
             Select::TextLenSpec { spec } => optimized_char_count(input) == *spec,
             Select::NumRange { min, max } => input
                 .parse::<Num>()
-                .map(|i| min.map_or(true, |min_len| i >= min_len) && max.map_or(true, |max_len| i <= max_len))
+                .map(|i| min.is_none_or(|min_len| i >= min_len) && max.is_none_or(|max_len| i <= max_len))
                 .unwrap_or(false),
             Select::NumSpec { spec } => input.parse::<Num>().ok().map(|i| &i == spec).unwrap_or(false),
             Select::Num { integer } => match integer {
@@ -170,10 +170,10 @@ impl Select {
                     if *integer {
                         input.parse::<Integer>().is_ok()
                     } else {
-                        input.parse::<Integer>().is_err() && input.parse::<Float>().map_or(false, |v| v.is_finite())
+                        input.parse::<Integer>().is_err() && input.parse::<Float>().is_ok_and(|v| v.is_finite())
                     }
                 }
-                None => input.parse::<Float>().map_or(false, |v| v.is_finite()),
+                None => input.parse::<Float>().is_ok_and(|v| v.is_finite()),
             },
             Select::Text { mode } => match mode {
                 TextSelectMode::Upper => !input.chars().any(|c| c.is_lowercase()),

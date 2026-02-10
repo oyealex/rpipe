@@ -91,9 +91,7 @@ impl Input {
     pub(crate) fn try_into(self, configs: &'static [Config]) -> PipeRes {
         match self {
             Input::StdIn => Ok(Pipe {
-                iter: Box::new(
-                    io::stdin().lock().lines().into_iter().take_while(Result::is_ok).map(|line| line.unwrap()),
-                ),
+                iter: Box::new(io::stdin().lock().lines().take_while(Result::is_ok).map(|line| line.unwrap())),
             }),
             Input::File { files } => Ok(Pipe {
                 iter: Box::new(
@@ -111,9 +109,7 @@ impl Input {
                             }
                         })
                         .map(|(fin, f)| (BufReader::new(fin), Rc::new(f)))
-                        .flat_map(|(reader, f)| {
-                            BufRead::lines(reader).into_iter().enumerate().map(move |l| (l, f.clone()))
-                        })
+                        .flat_map(|(reader, f)| BufRead::lines(reader).enumerate().map(move |l| (l, f.clone())))
                         .filter_map(|((line, lr), f)| match lr {
                             Ok(line) => Some(line),
                             Err(err) => {
@@ -147,10 +143,10 @@ impl Input {
                     Ok(Pipe { iter: Box::new(range_to_iter(start, end, step).map(|s| s.to_string())) })
                 }
             }
-            Input::Repeat { value, count } => Ok(if count.is_none() {
-                Pipe { iter: Box::new(repeat(value)) }
+            Input::Repeat { value, count } => Ok(if let Some(count_value) = count {
+                Pipe { iter: Box::new(std::iter::repeat_n(value, count_value)) }
             } else {
-                Pipe { iter: Box::new(repeat(value).take(count.unwrap())) }
+                Pipe { iter: Box::new(repeat(value)) }
             }),
         }
     }
@@ -287,12 +283,14 @@ mod iter_tests {
         assert_eq!(range_to_iter(0, 0, 2).collect::<Vec<_>>(), (0..=0).step_by(2).collect::<Vec<_>>());
     }
 
+    #[allow(clippy::reversed_empty_ranges)]
     #[test]
     fn test_range_to_iter_reverted_range_and_positive() {
         assert_eq!(range_to_iter(10, 0, 1).collect::<Vec<_>>(), (10..=0).collect::<Vec<_>>());
         assert_eq!(range_to_iter(10, 0, 2).collect::<Vec<_>>(), (10..=0).step_by(2).collect::<Vec<_>>());
     }
 
+    #[allow(clippy::reversed_empty_ranges)]
     #[test]
     fn test_range_to_iter_reverted_range_and_negative() {
         assert_eq!(range_to_iter(10, 0, -1).collect::<Vec<_>>(), (10..=0).rev().collect::<Vec<_>>());

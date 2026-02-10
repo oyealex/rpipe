@@ -95,10 +95,10 @@ impl TrimArg {
             TrimParam::Str(pattern) => {
                 if is_nocase(self.nocase, configs) {
                     match self.pos {
-                        TrimPos::Head => Self::trim_head_str_nocase(&to_trim, &pattern),
-                        TrimPos::Tail => Self::trim_tail_str_nocase(&to_trim, &pattern),
+                        TrimPos::Head => Self::trim_head_str_nocase(&to_trim, pattern),
+                        TrimPos::Tail => Self::trim_tail_str_nocase(&to_trim, pattern),
                         TrimPos::Both => {
-                            Self::trim_tail_str_nocase(Self::trim_head_str_nocase(&to_trim, &pattern), &pattern)
+                            Self::trim_tail_str_nocase(Self::trim_head_str_nocase(&to_trim, pattern), pattern)
                         }
                     }
                 } else {
@@ -130,15 +130,15 @@ impl TrimArg {
                 }
             }
             TrimParam::Regex { primary, secondary } => match self.pos {
-                TrimPos::Head => Self::trim_head_regex(&to_trim, &primary),
-                TrimPos::Tail => Self::trim_tail_regex(&to_trim, &primary),
+                TrimPos::Head => Self::trim_head_regex(&to_trim, primary),
+                TrimPos::Tail => Self::trim_tail_regex(&to_trim, primary),
                 TrimPos::Both => {
-                    let to_trim = Self::trim_head_regex(&to_trim, &primary);
-                    if let Some(regex) = secondary { Self::trim_tail_regex(&to_trim, &regex) } else { to_trim }
+                    let to_trim = Self::trim_head_regex(&to_trim, primary);
+                    if let Some(regex) = secondary { Self::trim_tail_regex(to_trim, regex) } else { to_trim }
                 }
             },
         };
-        if trimmed == &to_trim { to_trim } else { trimmed.to_owned() }
+        if trimmed == to_trim { to_trim } else { trimmed.to_owned() }
     }
 
     fn trim_head_str_nocase<'a>(to_trim: &'a str, pattern: &'a str) -> &'a str {

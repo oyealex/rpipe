@@ -71,8 +71,7 @@ impl Output {
             }
             #[cfg(windows)]
             Output::Clip { crlf } => {
-                use itertools::Itertools;
-                let text = pipe.map(String::from).join(if crlf.unwrap_or(false) { "\r\n" } else { "\n" });
+                let text = pipe.collect::<Vec<_>>().join(if crlf.unwrap_or(false) { "\r\n" } else { "\n" });
                 clipboard_win::set_clipboard_string(&text).map_err(|err| RpErr::WriteToClipboardErr(err.to_string()))
             }
         }

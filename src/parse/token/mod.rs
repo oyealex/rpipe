@@ -4,12 +4,16 @@ pub(in crate::parse) mod input;
 pub(in crate::parse) mod op;
 pub(in crate::parse) mod output;
 
-use crate::Num;
 use crate::config::Config;
 use crate::err::RpErr;
 use crate::input::Input;
 use crate::op::Op;
 use crate::output::Output;
+use crate::Num;
+
+type ParseResult<'a, T> = Result<(&'a str, T), RpErr>;
+type ParseWithConfigsResult<'a> = ParseResult<'a, (Vec<Config>, Input, Vec<Op>, Output)>;
+type ParseWithoutConfigsResult<'a> = ParseResult<'a, (Input, Vec<Op>, Output)>;
 use crate::parse::token::config::parse_configs;
 use crate::parse::token::input::parse_input;
 use crate::parse::token::op::parse_ops;
@@ -33,7 +37,7 @@ pub(in crate::parse) use nom::character::complete::i64 as parse_integer;
 pub(in crate::parse) use nom::number::complete::double as parse_float;
 
 #[allow(unused)]
-pub(crate) fn parse(token: &str) -> Result<(&str, (Vec<Config>, Input, Vec<Op>, Output)), RpErr> {
+pub(crate) fn parse(token: &str) -> ParseWithConfigsResult<'_> {
     let (token, configs) = parse_configs(token).map_err(RpErr::from)?;
     let (token, input) = parse_input(token).map_err(RpErr::from)?;
     let (token, ops) = parse_ops(token).map_err(RpErr::from)?;
@@ -41,7 +45,7 @@ pub(crate) fn parse(token: &str) -> Result<(&str, (Vec<Config>, Input, Vec<Op>, 
     Ok((token, (configs, input, ops, output)))
 }
 
-pub(crate) fn parse_without_configs(token: &str) -> Result<(&str, (Input, Vec<Op>, Output)), RpErr> {
+pub(crate) fn parse_without_configs(token: &str) -> ParseWithoutConfigsResult<'_> {
     let (token, input) = parse_input(token).map_err(RpErr::from)?;
     let (token, ops) = parse_ops(token).map_err(RpErr::from)?;
     let (token, output) = parse_out(token).map_err(RpErr::from)?;
@@ -111,7 +115,11 @@ fn arg_exclude_cmd(input: &str) -> IResult<&str, String, RpParseErr<'_>> {
     context(
         "arg_exclude_cmd",
         map(verify(arg, |s: &String| whole_cmd_token(s).is_err()), |s| {
-            if let Some(stripped) = s.strip_prefix("\\:") { format!(":{}", stripped) } else { s.to_owned() }
+            if let Some(stripped) = s.strip_prefix("\\:") {
+                format!(":{}", stripped)
+            } else {
+                s.to_owned()
+            }
         }),
     )
     .parse(input)
@@ -144,11 +152,7 @@ where
 /// *参考：* https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html?spm=a2ty_o01.29997173.0.0.488051715w53V1#tag_18_02_02
 pub(in crate::parse) fn arg(input: &str) -> IResult<&str, String, RpParseErr<'_>> {
     fold_many1(
-        alt((
-            map(normal_part, |string| Cow::Owned(string)),
-            map(double_quota_part, |string| Cow::Owned(string)),
-            map(single_quota_part, |string| Cow::Borrowed(string)),
-        )),
+        alt((map(normal_part, Cow::Owned), map(double_quota_part, Cow::Owned), map(single_quota_part, Cow::Borrowed))),
         String::new,
         |mut acc, item| {
             match item {
