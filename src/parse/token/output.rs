@@ -1,14 +1,14 @@
 use crate::output::Output;
-use crate::parse::token::general_file_info;
 use crate::parse::RpParseErr;
+use crate::parse::token::general_file_info;
+use nom::IResult;
+use nom::Parser;
 use nom::branch::alt;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::space1;
 use nom::combinator::{map, success};
 use nom::error::context;
 use nom::sequence::{preceded, terminated};
-use nom::IResult;
-use nom::Parser;
 
 pub(in crate::parse) type OutputIResult<'a> = IResult<&'a str, Output, RpParseErr<'a>>;
 

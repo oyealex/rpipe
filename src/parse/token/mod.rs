@@ -4,12 +4,12 @@ pub(in crate::parse) mod input;
 pub(in crate::parse) mod op;
 pub(in crate::parse) mod output;
 
+use crate::Num;
 use crate::config::Config;
 use crate::err::RpErr;
 use crate::input::Input;
 use crate::op::Op;
 use crate::output::Output;
-use crate::Num;
 
 type ParseResult<'a, T> = Result<(&'a str, T), RpErr>;
 type ParseWithConfigsResult<'a> = ParseResult<'a, (Vec<Config>, Input, Vec<Op>, Output)>;
@@ -115,11 +115,7 @@ fn arg_exclude_cmd(input: &str) -> IResult<&str, String, RpParseErr<'_>> {
     context(
         "arg_exclude_cmd",
         map(verify(arg, |s: &String| whole_cmd_token(s).is_err()), |s| {
-            if let Some(stripped) = s.strip_prefix("\\:") {
-                format!(":{}", stripped)
-            } else {
-                s.to_owned()
-            }
+            if let Some(stripped) = s.strip_prefix("\\:") { format!(":{}", stripped) } else { s.to_owned() }
         }),
     )
     .parse(input)

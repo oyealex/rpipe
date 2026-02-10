@@ -5,6 +5,7 @@
 ## 项目概述
 
 `rpipe` 是一个用 Rust 实现的命令行字符串处理工具，支持流式处理。二进制文件名为 `rp`，使用基于 token 的自定义解析系统进行数据处理流水线。
+当前版本：0.3.1
 
 ## 构建/开发命令
 
@@ -47,7 +48,23 @@ cargo clippy --all-targets --all-features
 
 ### 测试策略
 - 测试使用 `#[cfg(test)]` 和 `#[test]` 属性嵌入在源文件中
-- 90+ 个测试分布在 17 个模块中（src/op/trim.rs, src/parse/token/op.rs, src/condition.rs 等）
+- 94 个测试分布在以下模块中：
+  - `condition::tests` (10个)
+  - `input::iter_tests` (9个)
+  - `op::tests` (6个)
+  - `op::trim::tests` (5个)
+  - `op::slice::tests` (1个)
+  - `op::replace::tests` (1个)
+  - `fmt::tests` (1个)
+  - `parse::args::condition::tests` (8个)
+  - `parse::args::input::tests` (6个)
+  - `parse::args::op::tests` (10个)
+  - `parse::token::condition::tests` (8个)
+  - `parse::token::input::tests` (6个)
+  - `parse::token::op::tests` (12个)
+  - `parse::token::config::tests` (2个)
+  - `parse::token::output::tests` (2个)
+  - `parse::token::tests` (4个)
 - CI 流水线运行 `cargo build --verbose` 和 `cargo test --verbose`
 - 示例测试名称：`test_trim_blank`, `test_parse_case`, `test_text_len_range`, `test_parse_sum`, `test_parse_replace`
 
@@ -65,11 +82,48 @@ cargo clippy --all-targets --all-features
 - `empty_item_single_line = true` - 单行空项
 - `format_strings = true` - 格式化字符串字面量
 - `merge_derives = true` - 合并 derive 属性
+- `struct_variant_width = 120` - 结构体变体宽度
+- `enum_discrim_align_threshold = 0` - 枚举判别式对齐阈值
 
 ### 模块结构
 - 核心模块：`condition`, `config`, `err`, `input`, `op`, `output`, `parse`, `pipe`, `print`, `fmt`, `help`
 - 解析模块分为 `args` 和 `token` 子目录
 - 操作模块按功能划分：`replace`, `slice`, `trim`
+
+### 操作命令
+支持的操作包括：
+- **访问操作**：`peek` - 打印每个值到标准输出或文件
+- **转换操作**：`upper`, `lower`, `case` - 大小写转换
+- **替换操作**：`replace` - 替换字符串
+- **修剪操作**：`trim`, `ltrim`, `rtrim` - 去除首尾子串
+- `trimc`, `ltrimc`, `rtrimc` - 去除首尾字符
+- `trimr`, `ltrimr`, `rtrimr` - 去除满足正则的字串
+- **减少操作**：`limit`, `skip`, `slice`, `uniq`, `sum`, `join`, `drop`, `take`, `count`
+- **排序操作**：`sort` - 支持字典序、数值排序、随机排序
+
+### 输入命令
+支持的输入方式包括：
+- `in` - 从标准输入读取
+- `file` - 从文件读取
+- `clip` - 从剪贴板读取（仅 Windows）
+- `of` - 直接字面值
+- `gen` - 生成指定范围内的整数
+- `repeat` - 重复字面值
+
+### 输出命令
+支持的输出方式包括：
+- `to out` - 输出到标准输出
+- `to file` - 输出到文件
+- `to clip` - 输出到剪贴板（仅 Windows）
+
+### 配置选项
+- `-V, --version` - 打印版本信息
+- `-h, --help` - 打印帮助信息
+- `-v, --verbose` - 打印流水线详情
+- `-d, --dry-run` - 仅解析，不执行
+- `-n, --nocase` - 全局忽略大小写
+- `-s, --skip-err` - 全局忽略错误
+- `-t, --token` - Token 模式解析
 
 ### 命名约定
 - 类型：`PascalCase`（例如：`Config`, `RpErr`, `Pipe`）
@@ -131,15 +185,21 @@ use crate::err::RpErr;
 - 强调流式处理和惰性求值
 
 ### 依赖使用
-- `itertools`：增强迭代器操作
-- `nom`：解析器组合器与 `nom-language` 用于错误报告
-- `thiserror`：使用派生宏进行错误处理
-- `ordered-float`：具有全序关系的浮点数值
-- `unicase`：不区分大小写的字符串比较
-- `regex`：正则表达式匹配
-- `rand`：随机数生成
-- `rt-format`：运行时字符串格式化
-- `cmd-help`：用于命令行帮助的自定义过程宏（本地依赖）
+- `itertools = "0.14.0"`：增强迭代器操作
+- `nom = "8.0.0"`：解析器组合器
+- `nom-language = "0.1.0"`：解析器错误信息辅助
+- `thiserror = "2.0.17"`：使用派生宏进行错误处理
+- `ordered-float = "5.1.0"`：具有全序关系的浮点数值
+- `unicase = "2.9.0"`：不区分大小写的字符串比较
+- `regex = "1.12.2"`：正则表达式匹配
+- `rand = "0.9.2"`：随机数生成
+- `rt-format = "0.3.1"`：运行时字符串格式化
+- `rustc-hash = "2.1.1"`：高性能哈希算法
+- `cmd-help`：用于命令行帮助的自定义过程宏（本地依赖，版本 0.1.0）
+- `clipboard-win = "5.4.1"`：Windows 剪贴板支持（条件编译）
+- `time = "0.3.45"`：处理时间（构建依赖）
+- `syn = "2.0"`：过程宏 AST 解析
+- `quote = "1.0"`：过程宏代码生成
 
 ### Windows 特定代码
 - Windows 剪贴板支持的条件编译
@@ -162,3 +222,21 @@ use crate::err::RpErr;
 - 用于生成帮助文档的自定义过程宏 `cmd-help`
 - 所有文档和注释使用中文
 - 进行更改后，运行 `cargo clippy` 和 `cargo fmt` 以确保代码质量
+
+### 关键设计模式
+- **Num 类型**：统一的数值类型，支持整数和浮点数自动转换，实现 `std::iter::Sum` 用于流式累加
+- **Pipe 结构体**：包装 `Box<dyn Iterator<Item = String>>`，支持惰性求值和流式处理
+- **条件选择系统**：`Condition` 和 `Select` 枚举支持复杂的条件表达式，包括文本、数值、正则匹配等
+- **双解析模式**：支持 args（参数模式）和 token（令牌模式）两种解析方式
+- **错误处理**：使用 `thiserror` 生成错误代码，实现 `Termination` trait 提供友好的退出信息
+
+### 性能优化
+- 使用 `rustc_hash::FxHashSet` 替代标准库 `HashSet` 提高哈希性能
+- `optimized_char_count` 函数对 ASCII 文本使用 O(1) 的字节长度计算
+- 大小写转换前进行 ASCII 检查避免不必要的操作
+- 使用 `Cow<str>` 减少字符串分配（在替换操作中）
+
+### 剪贴板支持
+- Windows 平台使用条件编译 `#[cfg(windows)]` 集成 `clipboard-win` crate
+- 支持从剪贴板读取（`:clip` 输入）和写入剪贴板（`:to clip` 输出）
+- 可配置换行符格式（LF 或 CRLF）
