@@ -3,9 +3,9 @@ mod slice;
 pub(crate) mod trim;
 
 use crate::condition::Condition;
-use crate::config::{Config, is_nocase};
+use crate::config::{is_nocase, Config};
 use crate::err::RpErr;
-use crate::fmt::{FmtArg, fmt_args};
+use crate::fmt::{fmt_args, FmtArg};
 use crate::op::replace::ReplaceArg;
 use crate::op::slice::SliceIter;
 use crate::op::trim::TrimArg;
@@ -15,12 +15,44 @@ use cmd_help::CmdHelp;
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 use rand::seq::SliceRandom;
+use regex::Regex;
 use rustc_hash::FxHashSet;
 use std::borrow::Cow;
 use std::cmp::Reverse;
 use std::fs::OpenOptions;
 use std::io::Write;
 use unicase::UniCase;
+
+#[derive(Debug)]
+pub(crate) struct RegArg {
+    regex: Regex,
+    count: Option<usize>,
+}
+
+impl RegArg {
+    pub(crate) fn new(reg: String, count: Option<usize>) -> Result<Self, RpErr> {
+        let regex = Regex::new(&reg).map_err(|err| RpErr::ParseRegexErr { reg: reg.clone(), err: err.to_string() })?;
+        Ok(RegArg { regex, count })
+    }
+
+    pub(crate) fn replace(&self, text: &str) -> String {
+        let max_matches = self.count.unwrap_or(usize::MAX);
+        let mut result = String::new();
+        for (matched, mat) in self.regex.find_iter(text).enumerate() {
+            if matched >= max_matches {
+                break;
+            }
+            result.push_str(mat.as_str());
+        }
+        result
+    }
+}
+
+impl PartialEq for RegArg {
+    fn eq(&self, other: &Self) -> bool {
+        self.regex.as_str() == other.regex.as_str() && self.count == other.count
+    }
+}
 
 #[derive(Debug, PartialEq, CmdHelp)]
 pub(crate) enum Op {
@@ -89,6 +121,18 @@ pub(crate) enum Op {
     ///             :rtrimr <regex>
     ///                 <regex>     需要去除的正则，必选。
     Trim(TrimArg),
+    /// :reg        正则匹配并替换。
+    ///             :reg <regex>[ <count>]
+    ///                 <regex> 正则表达式，必选。
+    ///                 <count> 最大匹配次数，必须为正整数，可选，未指定则匹配所有。
+    ///             对每个字符串，使用正则表达式进行匹配：
+    ///               - 如果匹配，将字符串替换为所有匹配的部分连接而成的字符串
+    ///               - 如果不匹配，替换为空字符串
+    ///             例如：
+    ///                 :reg '\d+'          // 匹配所有数字，"abc1d" -> "1", "abc" -> ""
+    ///                 :reg '\d' 3         // 最多匹配3次，"1a23" -> "123"
+    ///                 :reg '\d' 2         // 最多匹配2次，"1a23" -> "12"
+    Reg(RegArg),
     /* **************************************** 减少 **************************************** */
     /// :limit      保留前N个数据，丢弃后续的其他数据。
     ///             :limit <count>
@@ -261,6 +305,7 @@ impl Op {
                 }
             }
             Op::Trim(trim_arg) => Ok(pipe.op_map(move |s| trim_arg.trim(s, configs))),
+            Op::Reg(reg_arg) => Ok(pipe.op_map(move |s| reg_arg.replace(&s))),
             // OPT 2026-01-22 01:10 针对 limit 0、skip 0 等命令进行优化
             Op::Slice { ranges } => Ok(Pipe { iter: Box::new(SliceIter::new(pipe, ranges)) }),
             Op::Uniq { nocase } => {
@@ -287,7 +332,11 @@ impl Op {
                         Num::Integer(i) => i.to_string(),
                         Num::Float(f) => {
                             // 如果小数部分为 0，显示为整数
-                            if f.fract() == 0.0 { (f as Integer).to_string() } else { f.to_string() }
+                            if f.fract() == 0.0 {
+                                (f as Integer).to_string()
+                            } else {
+                                f.to_string()
+                            }
                         }
                     }
                 };
@@ -482,5 +531,178 @@ mod tests {
         let result = Op::Sum { fmt: None }.wrap(input, &[]).unwrap();
         let output: Vec<String> = result.collect();
         assert_eq!(output, vec!["6.5"]);
+    }
+
+    #[test]
+    fn test_reg_basic_match() {
+        let reg_arg = RegArg::new(r"\d+".to_string(), None).unwrap();
+        assert_eq!(reg_arg.replace("abc1d"), "1");
+        assert_eq!(reg_arg.replace("abc"), "");
+        assert_eq!(reg_arg.replace("123abc456"), "123456");
+        assert_eq!(reg_arg.replace("123abc"), "123");
+    }
+
+    #[test]
+    fn test_reg_with_count() {
+        let reg_arg = RegArg::new(r"\d".to_string(), Some(3)).unwrap();
+        assert_eq!(reg_arg.replace("1a23"), "123");
+        assert_eq!(reg_arg.replace("1a2"), "12");
+        assert_eq!(reg_arg.replace("a12b34c56"), "123");
+
+        let reg_arg2 = RegArg::new(r"\d".to_string(), Some(2)).unwrap();
+        assert_eq!(reg_arg2.replace("1a23"), "12");
+        assert_eq!(reg_arg2.replace("a12b34c56"), "12");
+
+        let reg_arg3 = RegArg::new(r"[a-z]".to_string(), Some(1)).unwrap();
+        assert_eq!(reg_arg3.replace("abc123"), "a");
+    }
+
+    #[test]
+    fn test_reg_multiple_matches() {
+        let reg_arg = RegArg::new(r"\d+".to_string(), None).unwrap();
+        assert_eq!(reg_arg.replace("a1b2c3"), "123");
+        assert_eq!(reg_arg.replace("12-34-56"), "123456");
+
+        let reg_arg2 = RegArg::new(r"[0-9]".to_string(), None).unwrap();
+        assert_eq!(reg_arg2.replace("a1b2c3"), "123");
+        assert_eq!(reg_arg2.replace("abc"), "");
+    }
+
+    #[test]
+    fn test_reg_no_match() {
+        let reg_arg = RegArg::new(r"\d+".to_string(), None).unwrap();
+        assert_eq!(reg_arg.replace("abc"), "");
+        assert_eq!(reg_arg.replace("ABC"), "");
+        assert_eq!(reg_arg.replace("!@#"), "");
+
+        let reg_arg2 = RegArg::new(r"[A-Z]+".to_string(), None).unwrap();
+        assert_eq!(reg_arg2.replace("abc"), "");
+        assert_eq!(reg_arg2.replace("123"), "");
+    }
+
+    #[test]
+    fn test_reg_empty_string() {
+        let reg_arg = RegArg::new(r"\d+".to_string(), None).unwrap();
+        assert_eq!(reg_arg.replace(""), "");
+
+        let reg_arg2 = RegArg::new(r".*".to_string(), None).unwrap();
+        assert_eq!(reg_arg2.replace(""), "");
+    }
+
+    #[test]
+    fn test_reg_count_exceeds_matches() {
+        let reg_arg = RegArg::new(r"\d".to_string(), Some(10)).unwrap();
+        assert_eq!(reg_arg.replace("123"), "123");
+        assert_eq!(reg_arg.replace("12"), "12");
+        assert_eq!(reg_arg.replace("1"), "1");
+
+        let reg_arg2 = RegArg::new(r"\d".to_string(), Some(100)).unwrap();
+        assert_eq!(reg_arg2.replace("1a2b3c"), "123");
+    }
+
+    #[test]
+    fn test_reg_count_one() {
+        let reg_arg = RegArg::new(r"\d+".to_string(), Some(1)).unwrap();
+        assert_eq!(reg_arg.replace("a1b2c3"), "1");
+        assert_eq!(reg_arg.replace("123abc456"), "123");
+
+        let reg_arg2 = RegArg::new(r"\d".to_string(), Some(1)).unwrap();
+        assert_eq!(reg_arg2.replace("123"), "1");
+    }
+
+    #[test]
+    fn test_reg_special_characters() {
+        let text_with_newlines = String::from("a\nb\nc");
+        let reg_arg = RegArg::new(r"\n".to_string(), None).unwrap();
+        assert_eq!(reg_arg.replace(&text_with_newlines), "\n\n");
+
+        let text_with_tabs = String::from("a\tb\tc");
+        let reg_arg2 = RegArg::new(r"\t".to_string(), None).unwrap();
+        assert_eq!(reg_arg2.replace(&text_with_tabs), "\t\t");
+
+        let text_with_spaces = String::from("a b c");
+        let reg_arg3 = RegArg::new(r" ".to_string(), None).unwrap();
+        assert_eq!(reg_arg3.replace(&text_with_spaces), "  ");
+    }
+
+    #[test]
+    fn test_reg_unicode() {
+        let reg_arg = RegArg::new(r"[一-龥]".to_string(), None).unwrap();
+        assert_eq!(reg_arg.replace("一二三"), "一二三");
+        assert_eq!(reg_arg.replace("abc一二三"), "一二三");
+        assert_eq!(reg_arg.replace("abc123"), "");
+
+        let reg_arg2 = RegArg::new(r".+".to_string(), None).unwrap();
+        assert_eq!(reg_arg2.replace("你好"), "你好");
+    }
+
+    #[test]
+    fn test_reg_complex_patterns() {
+        let reg_arg = RegArg::new(r"\d+".to_string(), None).unwrap();
+        assert_eq!(reg_arg.replace("abc123def456"), "123456");
+
+        let reg_arg2 = RegArg::new(r"[a-zA-Z]+".to_string(), None).unwrap();
+        assert_eq!(reg_arg2.replace("hello world"), "helloworld");
+
+        let reg_arg3 = RegArg::new(r"\d{4}".to_string(), Some(1)).unwrap();
+        assert_eq!(reg_arg3.replace("year 2024 code 12345"), "2024");
+    }
+
+    #[test]
+    fn test_reg_zero_width_matches() {
+        let reg_arg = RegArg::new(r"^".to_string(), None).unwrap();
+        assert_eq!(reg_arg.replace("abc"), "");
+
+        let reg_arg2 = RegArg::new(r"$".to_string(), None).unwrap();
+        assert_eq!(reg_arg2.replace("abc"), "");
+    }
+
+    #[test]
+    fn test_reg_continuous_matches() {
+        let reg_arg = RegArg::new(r"\d".to_string(), None).unwrap();
+        assert_eq!(reg_arg.replace("12345"), "12345");
+
+        let reg_arg2 = RegArg::new(r"[ab]".to_string(), None).unwrap();
+        assert_eq!(reg_arg2.replace("aaabbb"), "aaabbb");
+
+        let reg_arg3 = RegArg::new(r"[a-z]".to_string(), Some(2)).unwrap();
+        assert_eq!(reg_arg3.replace("abc"), "ab");
+    }
+
+    #[test]
+    fn test_reg_op_wrap() {
+        let input = Pipe { iter: Box::new(vec!["abc1d", "abc", "1a23"].into_iter().map(|s| s.to_string())) };
+        let reg_arg = RegArg::new(r"\d+".to_string(), None).unwrap();
+        let result = Op::Reg(reg_arg).wrap(input, &[]).unwrap();
+        let output: Vec<String> = result.collect();
+        assert_eq!(output, vec!["1", "", "123"]);
+    }
+
+    #[test]
+    fn test_reg_op_wrap_with_count() {
+        let input = Pipe { iter: Box::new(vec!["1a23", "abc", "12345"].into_iter().map(|s| s.to_string())) };
+        let reg_arg = RegArg::new(r"\d".to_string(), Some(2)).unwrap();
+        let result = Op::Reg(reg_arg).wrap(input, &[]).unwrap();
+        let output: Vec<String> = result.collect();
+        assert_eq!(output, vec!["12", "", "12"]);
+    }
+
+    #[test]
+    fn test_reg_invalid_regex() {
+        assert!(RegArg::new(r"[".to_string(), None).is_err());
+        assert!(RegArg::new(r"(?P<invalid".to_string(), None).is_err());
+        assert!(RegArg::new(r"(*)".to_string(), None).is_err());
+    }
+
+    #[test]
+    fn test_reg_partial_eq() {
+        let reg1 = RegArg::new(r"\d+".to_string(), Some(3)).unwrap();
+        let reg2 = RegArg::new(r"\d+".to_string(), Some(3)).unwrap();
+        let reg3 = RegArg::new(r"\d+".to_string(), None).unwrap();
+        let reg4 = RegArg::new(r"[a-z]+".to_string(), Some(3)).unwrap();
+
+        assert_eq!(reg1, reg2);
+        assert_ne!(reg1, reg3);
+        assert_ne!(reg1, reg4);
     }
 }

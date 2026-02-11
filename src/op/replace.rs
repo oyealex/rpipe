@@ -1,4 +1,4 @@
-use crate::config::{Config, is_nocase};
+use crate::config::{is_nocase, Config};
 use std::borrow::Cow;
 
 #[derive(Debug, PartialEq)]

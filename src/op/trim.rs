@@ -1,4 +1,4 @@
-use crate::config::{Config, is_nocase};
+use crate::config::{is_nocase, Config};
 use crate::err::RpErr;
 use regex::Regex;
 use std::collections::HashSet;
@@ -134,11 +134,19 @@ impl TrimArg {
                 TrimPos::Tail => Self::trim_tail_regex(&to_trim, primary),
                 TrimPos::Both => {
                     let to_trim = Self::trim_head_regex(&to_trim, primary);
-                    if let Some(regex) = secondary { Self::trim_tail_regex(to_trim, regex) } else { to_trim }
+                    if let Some(regex) = secondary {
+                        Self::trim_tail_regex(to_trim, regex)
+                    } else {
+                        to_trim
+                    }
                 }
             },
         };
-        if trimmed == to_trim { to_trim } else { trimmed.to_owned() }
+        if trimmed == to_trim {
+            to_trim
+        } else {
+            trimmed.to_owned()
+        }
     }
 
     fn trim_head_str_nocase<'a>(to_trim: &'a str, pattern: &'a str) -> &'a str {
@@ -201,19 +209,35 @@ impl TrimArg {
 
     fn trim_head_char<'a>(to_trim: &'a str, chars: &[char]) -> &'a str {
         let start = to_trim.char_indices().find(|(_, c)| !chars.contains(c)).map_or(to_trim.len(), |(i, _)| i);
-        if start == to_trim.len() { "" } else { &to_trim[start..] }
+        if start == to_trim.len() {
+            ""
+        } else {
+            &to_trim[start..]
+        }
     }
 
     fn trim_tail_char<'a>(to_trim: &'a str, chars: &[char]) -> &'a str {
         let end = to_trim.char_indices().rfind(|(_, c)| !chars.contains(c)).map_or(0, |(i, c)| i + c.len_utf8());
-        if end == 0 { "" } else { &to_trim[..end] }
+        if end == 0 {
+            ""
+        } else {
+            &to_trim[..end]
+        }
     }
 
     fn trim_head_regex<'a>(text: &'a str, regex: &'a Regex) -> &'a str {
-        if let Some(mat) = regex.find(text) { &text[mat.end()..] } else { text }
+        if let Some(mat) = regex.find(text) {
+            &text[mat.end()..]
+        } else {
+            text
+        }
     }
     fn trim_tail_regex<'a>(text: &'a str, regex: &'a Regex) -> &'a str {
-        if let Some(mat) = regex.find(text) { &text[..mat.start()] } else { text }
+        if let Some(mat) = regex.find(text) {
+            &text[..mat.start()]
+        } else {
+            text
+        }
     }
 }
 
