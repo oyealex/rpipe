@@ -3,9 +3,9 @@ mod slice;
 pub(crate) mod trim;
 
 use crate::condition::Condition;
-use crate::config::{is_nocase, Config};
+use crate::config::{Config, is_nocase};
 use crate::err::RpErr;
-use crate::fmt::{fmt_args, FmtArg};
+use crate::fmt::{FmtArg, fmt_args};
 use crate::op::replace::ReplaceArg;
 use crate::op::slice::SliceIter;
 use crate::op::trim::TrimArg;
@@ -332,11 +332,7 @@ impl Op {
                         Num::Integer(i) => i.to_string(),
                         Num::Float(f) => {
                             // 如果小数部分为 0，显示为整数
-                            if f.fract() == 0.0 {
-                                (f as Integer).to_string()
-                            } else {
-                                f.to_string()
-                            }
+                            if f.fract() == 0.0 { (f as Integer).to_string() } else { f.to_string() }
                         }
                     }
                 };

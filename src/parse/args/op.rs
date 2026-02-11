@@ -1,6 +1,6 @@
 use crate::err::RpErr;
 use crate::op::trim::{TrimArg, TrimPos};
-use crate::op::{CaseArg, JoinInfo, Op, PeekArg, SortBy, TakeDropMode};
+use crate::op::{CaseArg, JoinInfo, Op, PeekArg, RegArg, SortBy, TakeDropMode};
 use crate::parse::args::condition::parse_cond;
 use crate::parse::args::{
     parse_arg, parse_as, parse_general_file_info, parse_opt_arg, parse_positive_usize, parse_tag_nocase, parse_usize,
@@ -37,6 +37,7 @@ fn parse_op(args: &mut Peekable<impl Iterator<Item = String>>) -> OpOptResult {
                 ":trimr" => Some(parse_trim_regex(":trimr", TrimPos::Both, args)?),
                 ":ltrimr" => Some(parse_trim_regex(":ltrimr", TrimPos::Head, args)?),
                 ":rtrimr" => Some(parse_trim_regex(":rtrimr", TrimPos::Tail, args)?),
+                ":reg" => Some(parse_reg(args)?),
                 ":limit" => Some(parse_limit(args)?),
                 ":skip" => Some(parse_skip(args)?),
                 ":slice" => Some(parse_slice(args)?),
@@ -108,6 +109,16 @@ fn parse_trim_regex(cmd: &'static str, pos: TrimPos, args: &mut Peekable<impl It
         Ok(Op::Trim(TrimArg::new_regex(pos, regex)?))
     } else {
         Err(RpErr::MissingArg { cmd, arg: "reg regex" })
+    }
+}
+
+fn parse_reg(args: &mut Peekable<impl Iterator<Item = String>>) -> OpResult {
+    args.next();
+    if let Some(regex) = parse_arg(args) {
+        let count_opt = parse_positive_usize(args);
+        Ok(Op::Reg(RegArg::new(regex, count_opt)?))
+    } else {
+        Err(RpErr::MissingArg { cmd: ":reg", arg: "regex" })
     }
 }
 
@@ -425,6 +436,69 @@ mod tests {
             parse_op(&mut build_args(":rtrimr \\d+"))
         );
         assert!(parse_op(&mut build_args(":rtrimr ")).is_err());
+    }
+
+    #[test]
+    fn test_parse_reg() {
+        // 基本匹配 - 无 count
+        let mut args = build_args(r":reg \d+");
+        assert_eq!(Ok(Some(Op::Reg(RegArg::new(r"\d+".to_string(), None).unwrap()))), parse_op(&mut args));
+        assert!(args.next().is_none());
+
+        let mut args = build_args(r":reg [a-z]+");
+        assert_eq!(Ok(Some(Op::Reg(RegArg::new(r"[a-z]+".to_string(), None).unwrap()))), parse_op(&mut args));
+        assert!(args.next().is_none());
+
+        let mut args = build_args(r#":reg "test.*pattern""#);
+        assert_eq!(Ok(Some(Op::Reg(RegArg::new(r"test.*pattern".to_string(), None).unwrap()))), parse_op(&mut args));
+        assert!(args.next().is_none());
+
+        // 带 count
+        let mut args = build_args(r":reg \d 3");
+        assert_eq!(Ok(Some(Op::Reg(RegArg::new(r"\d".to_string(), Some(3)).unwrap()))), parse_op(&mut args));
+        assert!(args.next().is_none());
+
+        let mut args = build_args(r":reg [a-z] 5");
+        assert_eq!(Ok(Some(Op::Reg(RegArg::new(r"[a-z]".to_string(), Some(5)).unwrap()))), parse_op(&mut args));
+        assert!(args.next().is_none());
+
+        // count 为 0 时不消耗
+        let mut args = build_args(r":reg \d+ 0");
+        assert_eq!(Ok(Some(Op::Reg(RegArg::new(r"\d+".to_string(), None).unwrap()))), parse_op(&mut args));
+        assert_eq!(Some("0".to_string()), args.next());
+
+        // count 为负数时不消耗
+        let mut args = build_args(r":reg [a-z] -1");
+        assert_eq!(Ok(Some(Op::Reg(RegArg::new(r"[a-z]".to_string(), None).unwrap()))), parse_op(&mut args));
+        assert_eq!(Some("-1".to_string()), args.next());
+
+        // 带特殊字符的正则
+        let mut args = build_args(":reg [a-z]");
+        assert_eq!(Ok(Some(Op::Reg(RegArg::new(r"[a-z]".to_string(), None).unwrap()))), parse_op(&mut args));
+        assert!(args.next().is_none());
+
+        // Unicode 正则
+        let mut args = build_args(r":reg [一-龥]");
+        assert_eq!(Ok(Some(Op::Reg(RegArg::new(r"[一-龥]".to_string(), None).unwrap()))), parse_op(&mut args));
+        assert!(args.next().is_none());
+
+        // 复杂正则
+        let mut args = build_args(r":reg (?P<name>\w+)");
+        assert_eq!(Ok(Some(Op::Reg(RegArg::new(r"(?P<name>\w+)".to_string(), None).unwrap()))), parse_op(&mut args));
+        assert!(args.next().is_none());
+
+        let mut args = build_args(r":reg \b\w{3}\b 2");
+        assert_eq!(Ok(Some(Op::Reg(RegArg::new(r"\b\w{3}\b".to_string(), Some(2)).unwrap()))), parse_op(&mut args));
+        assert!(args.next().is_none());
+
+        // 缺少正则参数
+        let mut args = build_args(":reg");
+        assert_eq!(Err(RpErr::MissingArg { cmd: ":reg", arg: "regex" }), parse_op(&mut args));
+        assert!(args.next().is_none());
+
+        // 无效正则
+        let mut args = build_args(r":reg [");
+        assert!(parse_op(&mut args).is_err());
     }
 
     #[test]

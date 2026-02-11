@@ -1,6 +1,6 @@
 use crate::err::RpErr;
 use crate::op::trim::{TrimArg, TrimPos};
-use crate::op::{CaseArg, JoinInfo, Op, PeekArg, SortBy, TakeDropMode};
+use crate::op::{CaseArg, JoinInfo, Op, PeekArg, RegArg, SortBy, TakeDropMode};
 use crate::parse::token::condition::parse_cond;
 use crate::parse::token::{
     arg, arg_end, arg_exclude_cmd, general_file_info, map_res_failure, parse_arg_as, parse_usize_range,
@@ -25,6 +25,7 @@ pub(in crate::parse) fn parse_ops(input: &str) -> OpsIResult<'_> {
             parse_case,
             parse_replace,
             parse_trim,
+            parse_reg,
             parse_slice,
             parse_uniq,
             parse_sum,
@@ -139,6 +140,29 @@ fn parse_trim(input: &str) -> OpIResult<'_> {
                 ),
             )),
             context("(trailing_space1)", space1), // 结尾空格
+        ),
+    )
+    .parse(input)
+}
+
+fn parse_reg(input: &str) -> OpIResult<'_> {
+    context(
+        "Op::Reg",
+        map(
+            preceded(
+                tag_no_case(":reg"),
+                terminated(
+                    map_res_failure(
+                        (
+                            preceded(space1, context("<regex>", arg_exclude_cmd)),
+                            opt(preceded(space1, context("<count>", verify(usize, |s| *s > 0)))),
+                        ),
+                        |(reg, count_opt)| Ok(Op::Reg(RegArg::new(reg, count_opt)?)),
+                    ),
+                    context("(trailing_space1)", space1),
+                ),
+            ),
+            |op| op,
         ),
     )
     .parse(input)
@@ -525,6 +549,23 @@ mod tests {
             Ok(("", Op::Trim(TrimArg::new_regex(TrimPos::Tail, "\\d+".to_owned()).unwrap())))
         );
         assert!(parse_trim(":rtrimr ").is_err());
+    }
+
+    #[test]
+    fn test_parse_reg() {
+        let result1 = parse_reg(":reg [0-9] ");
+        assert!(result1.is_ok());
+        let result2 = parse_reg(":reg [0-9] 3 ");
+        assert!(result2.is_ok());
+        let result3 = parse_reg(":reg [ ");
+        assert!(result3.is_err());
+        let result4 = parse_reg(":reg (?P<invalid ");
+        assert!(result4.is_err());
+        let result5 = parse_reg(":reg (*) ");
+        assert!(result5.is_err());
+        let result6 = parse_reg(":reg [a-z] 0 ");
+        assert!(result6.is_ok());
+        assert_eq!(result6.unwrap().0, "0 ");
     }
 
     #[test]
