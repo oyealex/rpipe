@@ -48,20 +48,20 @@ cargo clippy --all-targets --all-features
 
 ### 测试策略
 - 测试使用 `#[cfg(test)]` 和 `#[test]` 属性嵌入在源文件中
-- 94 个测试分布在以下模块中：
-  - `condition::tests` (10个)
-  - `input::iter_tests` (9个)
-  - `op::tests` (6个)
-  - `op::trim::tests` (5个)
+- 112 个测试分布在以下模块中：
+  - `condition::tests` (11个)
+  - `input::iter_tests` (10个)
+  - `op::tests` (22个)
+  - `op::trim::tests` (6个)
   - `op::slice::tests` (1个)
   - `op::replace::tests` (1个)
   - `fmt::tests` (1个)
-  - `parse::args::condition::tests` (8个)
+  - `parse::args::condition::tests` (9个)
   - `parse::args::input::tests` (6个)
-  - `parse::args::op::tests` (10个)
-  - `parse::token::condition::tests` (8个)
+  - `parse::args::op::tests` (11个)
+  - `parse::token::condition::tests` (9个)
   - `parse::token::input::tests` (6个)
-  - `parse::token::op::tests` (12个)
+  - `parse::token::op::tests` (11个)
   - `parse::token::config::tests` (2个)
   - `parse::token::output::tests` (2个)
   - `parse::token::tests` (4个)
